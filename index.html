@@ -18,12 +18,13 @@
 </head>
 <body>
   <header class="topbar">
-    <h1 id="title">Today</h1>
+    <h1 id="title"></h1>
     <div id="datenav" class="datenav">
       <button id="prevDay" aria-label="Previous day">‹</button>
       <button id="dateLabel" class="datelabel"></button>
       <button id="nextDay" aria-label="Next day">›</button>
     </div>
+    <button type="button" id="historyBtn" class="icon-btn" aria-label="History" aria-pressed="false"><span class="icon icon-calendar" aria-hidden="true"></span></button>
   </header>
 
   <main>
@@ -70,10 +71,60 @@
       <p id="emptyHistory" class="empty">No history yet.</p>
     </section>
 
-    <!-- SETTINGS -->
-    <section id="view-settings" class="view" hidden>
+    <!-- GOALS -->
+    <section id="view-goals" class="view" hidden>
+      <div class="chart-controls">
+        <div class="segmented compact" id="chartRange" role="group" aria-label="Time range">
+          <button type="button" data-range="goal">Goal</button>
+          <button type="button" data-range="30">1M</button>
+          <button type="button" data-range="90">3M</button>
+          <button type="button" data-range="all">All</button>
+        </div>
+        <div class="segmented compact" id="chartMetric" role="group" aria-label="Show">
+          <button type="button" data-metric="weight">Weight</button>
+          <button type="button" data-metric="bodyFat">Body fat</button>
+        </div>
+      </div>
       <div class="card">
-        <h2 class="card-title">Daily goals</h2>
+        <div class="progress-head">
+          <div>
+            <div class="muted small" id="progressLabel">Weight</div>
+            <div class="hero-row"><span class="big" id="progressValue">–</span><span class="muted" id="progressUnit"></span></div>
+            <div class="muted small" id="progressSub"></div>
+          </div>
+          <span class="status-chip" id="progressStatus" hidden></span>
+        </div>
+        <div class="chart" id="weightChart"></div>
+        <div class="legend" id="chartLegend"></div>
+        <p class="empty" id="chartEmpty" hidden></p>
+      </div>
+      <div class="card">
+        <h2 class="card-title">Weight goal</h2>
+        <form id="weightGoalForm" novalidate>
+          <div class="grid2">
+            <label class="field">Goal weight (<span class="wunit">lb</span>)
+              <input name="target" type="number" step="any" min="1" inputmode="decimal">
+            </label>
+            <label class="field">Reach it by
+              <input name="date" type="date">
+            </label>
+          </div>
+          <div class="goal-summary" id="goalSummary"></div>
+          <button type="submit" class="btn primary full" id="saveGoalBtn">Set goal</button>
+          <button type="button" class="btn full" id="usePlanBtn" hidden>Use this plan for my daily calories</button>
+          <div class="goal-links" id="goalLinks" hidden>
+            <button type="button" class="link" id="restartGoalBtn">Restart plan from today</button>
+            <button type="button" class="link danger-link" id="removeGoalBtn">Remove goal</button>
+          </div>
+        </form>
+      </div>
+      <div class="card">
+        <h2 class="card-title">Daily nutrition</h2>
+        <div class="segmented two" id="calorieSource" role="group" aria-label="Where your calories come from">
+          <button type="button" data-source="plan">From my plan</button>
+          <button type="button" data-source="manual">Set my own</button>
+        </div>
+        <p class="muted small" id="planNote" hidden></p>
         <div class="modes" id="goalModes"></div>
         <label class="field">Calories
           <input type="number" id="goalCalories" inputmode="numeric" min="0" placeholder="e.g. 2000">
@@ -91,6 +142,59 @@
         </div>
         <p class="muted small" id="goalHint"></p>
       </div>
+      <div class="card">
+        <h2 class="card-title">About you</h2>
+        <p class="muted small">Used to estimate how many calories you burn in a day.</p>
+        <form id="profileForm">
+          <div class="grid2">
+            <label class="field">Sex
+              <select name="sex">
+                <option value="">Choose…</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other / rather not say</option>
+              </select>
+            </label>
+            <label class="field">Age
+              <input name="age" type="number" min="13" max="120" inputmode="numeric">
+            </label>
+          </div>
+          <div class="field" id="heightImperial">Height
+            <div class="inline-inputs">
+              <label><input name="feet" type="number" min="0" max="8" inputmode="numeric" aria-label="Height, feet"><span>ft</span></label>
+              <label><input name="inches" type="number" min="0" max="11" inputmode="numeric" aria-label="Height, inches"><span>in</span></label>
+            </div>
+          </div>
+          <label class="field" id="heightMetric" hidden>Height (cm)
+            <input name="cm" type="number" min="50" max="250" inputmode="numeric">
+          </label>
+          <label class="field">Activity
+            <select name="activity"></select>
+            <span class="field-hint" id="activityHint"></span>
+          </label>
+          <label class="field">Units
+            <select name="units">
+              <option value="imperial">Pounds, feet and inches</option>
+              <option value="metric">Kilograms and centimeters</option>
+            </select>
+          </label>
+        </form>
+        <p class="muted small" id="maintenanceNote"></p>
+        <p class="muted small">These are estimates, not medical advice. Check with a doctor before big changes, especially if you're pregnant, under 18 or have a health condition.</p>
+      </div>
+      <div class="card">
+        <h2 class="card-title">Weigh-ins</h2>
+        <ul class="list rows" id="weighInList"></ul>
+        <p class="muted small" id="weighInEmpty">No weigh-ins yet.</p>
+        <div class="row gap">
+          <button type="button" class="btn grow" id="goalsLogWeightBtn"><span class="icon icon-scale" aria-hidden="true"></span>Log weight</button>
+          <button type="button" class="btn" id="showAllWeighIns" hidden>Show all</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view" hidden>
       <div class="card" id="accountCard" hidden>
         <h2 class="card-title">Account &amp; backup</h2>
         <p class="muted small" id="accountLoading">Loading…</p>
@@ -133,16 +237,16 @@
         </div>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
-      <p class="credits muted small">Icons by <a href="https://www.streamlinehq.com" target="_blank" rel="noopener">Streamline</a></p>
+      <p class="credits muted small">Version 5 · Icons by <a href="https://www.streamlinehq.com" target="_blank" rel="noopener">Streamline</a></p>
     </section>
   </main>
 
-  <button id="fab" class="fab" aria-label="Add food">+</button>
+  <button id="fab" class="fab" aria-label="Add food or weight">+</button>
 
   <nav class="tabs">
     <button data-view="today" class="active"><span class="icon icon-home" aria-hidden="true"></span><span>Today</span></button>
     <button data-view="foods"><span class="icon icon-star" aria-hidden="true"></span><span>My Foods</span></button>
-    <button data-view="history"><span class="icon icon-calendar" aria-hidden="true"></span><span>History</span></button>
+    <button data-view="goals"><span class="icon icon-target" aria-hidden="true"></span><span>Goals</span></button>
     <button data-view="settings"><span class="icon icon-settings" aria-hidden="true"></span><span>Settings</span></button>
   </nav>
 
@@ -152,12 +256,13 @@
   <!-- ADD SHEET: pick a saved food, quick add, or scan -->
   <dialog id="addDialog" class="sheet">
     <div class="sheet-head">
-      <h2>Add food</h2>
+      <h2>Add</h2>
       <button class="x" data-close>✕</button>
     </div>
-    <div class="row gap">
-      <button class="btn grow" id="quickAddBtn"><span class="icon icon-pencil" aria-hidden="true"></span>Custom food</button>
-      <button class="btn grow" id="scanAddBtn"><span class="icon icon-camera" aria-hidden="true"></span>Scan label</button>
+    <div class="tiles">
+      <button class="tile" id="quickAddBtn"><span class="icon icon-pencil" aria-hidden="true"></span>Custom food</button>
+      <button class="tile" id="scanAddBtn"><span class="icon icon-camera" aria-hidden="true"></span>Scan label</button>
+      <button class="tile" id="logWeightBtn"><span class="icon icon-scale" aria-hidden="true"></span>Log weight</button>
     </div>
     <input type="search" id="addSearch" class="search" placeholder="Search my foods">
     <ul id="addList" class="list compact"></ul>
@@ -258,6 +363,38 @@
       <div class="row gap">
         <button type="button" class="btn danger" id="deleteEntryBtn"><span class="icon icon-trash" aria-hidden="true"></span>Remove</button>
         <button type="submit" class="btn primary grow" id="portionSubmitBtn">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- LOG WEIGHT -->
+  <dialog id="weightDialog" class="sheet">
+    <form id="weightForm" method="dialog" novalidate>
+      <div class="sheet-head">
+        <h2 id="weightDialogTitle">Log weight</h2>
+        <button type="button" class="x" data-close>✕</button>
+      </div>
+      <label class="field">Date
+        <input name="date" type="date">
+      </label>
+      <div class="grid2">
+        <label class="field">Weight
+          <input name="weight" type="number" step="any" min="1" inputmode="decimal">
+        </label>
+        <label class="field">Unit
+          <select name="unit">
+            <option value="lb">lb</option>
+            <option value="kg">kg</option>
+          </select>
+        </label>
+      </div>
+      <label class="field">Body fat % (optional)
+        <input name="bodyFat" type="number" step="any" min="3" max="75" inputmode="decimal">
+      </label>
+      <p class="muted small" id="weightHint"></p>
+      <div class="row gap">
+        <button type="button" class="btn danger" id="deleteWeightBtn"><span class="icon icon-trash" aria-hidden="true"></span>Delete</button>
+        <button type="submit" class="btn primary grow">Save</button>
       </div>
     </form>
   </dialog>

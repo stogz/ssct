@@ -11,6 +11,8 @@
   --protein: #ef4444;
   --carbs: #a855f7;
   --fat: #eab308;
+  --chart-line: #16a34a;
+  --chart-point: #9aa39d;
   --radius: 14px;
   color-scheme: light;
 }
@@ -27,6 +29,8 @@
     --protein: #f87171;
     --carbs: #c084fc;
     --fat: #facc15;
+    --chart-line: #1eaf52;
+    --chart-point: #6b746e;
     color-scheme: dark;
   }
 }
@@ -41,6 +45,8 @@
   --protein: #f87171;
   --carbs: #c084fc;
   --fat: #facc15;
+  --chart-line: #1eaf52;
+  --chart-point: #6b746e;
   color-scheme: dark;
 }
 /* No double-tap to zoom (iOS Safari); pinch zoom still works. */
@@ -58,17 +64,29 @@ body {
 [hidden] { display: none !important; }
 button, input, select { font: inherit; color: inherit; }
 
+/* Title on the left, date in the middle, calendar button on the right. */
 .topbar {
   position: sticky; top: 0; z-index: 5;
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+  min-height: calc(58px + env(safe-area-inset-top));
   padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   background: var(--bg);
 }
-.topbar h1 { font-size: 22px; margin: 0; }
-.datenav { display: flex; align-items: center; gap: 4px; flex: 1; justify-content: center; }
+.topbar h1 { grid-column: 1; font-size: 22px; margin: 0; white-space: nowrap; }
+.datenav { grid-column: 2; display: flex; align-items: center; gap: 4px; justify-content: center; }
 .datenav button { background: none; border: 0; font-size: 26px; padding: 4px 14px; cursor: pointer; }
 .datenav button:disabled { opacity: .25; }
 .datenav .datelabel { font-size: 18px; font-weight: 600; min-width: 130px; }
+/* In history the label just says "History": no arrows, and it isn't a button. */
+.datenav.history #prevDay, .datenav.history #nextDay { visibility: hidden; }
+.datenav.history .datelabel:disabled { opacity: 1; cursor: default; }
+.icon-btn {
+  grid-column: 3; justify-self: end; display: grid; place-items: center;
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 12px;
+  background: none; color: var(--text); cursor: pointer;
+}
+.icon-btn .icon { width: 22px; height: 22px; }
+.icon-btn.active { background: var(--card); color: var(--accent); box-shadow: inset 0 0 0 1px var(--line); }
 
 main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; border: 1px solid var(--line); }
@@ -236,6 +254,8 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .icon-camera { -webkit-mask-image: url(icons/ui/camera.svg); mask-image: url(icons/ui/camera.svg); }
 .icon-trash { -webkit-mask-image: url(icons/ui/trash.svg); mask-image: url(icons/ui/trash.svg); }
 .icon-none { -webkit-mask-image: url(icons/ui/none.svg); mask-image: url(icons/ui/none.svg); }
+.icon-scale { -webkit-mask-image: url(icons/ui/scale.svg); mask-image: url(icons/ui/scale.svg); }
+.icon-target { -webkit-mask-image: url(icons/ui/target.svg); mask-image: url(icons/ui/target.svg); }
 .link .icon { width: 16px; height: 16px; }
 
 /* Bottom sheets */
@@ -275,3 +295,69 @@ legend { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
   background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 99px; font-weight: 600; z-index: 100;
   max-width: calc(100% - 32px);
 }
+
+/* Add sheet: three big choices */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 6px 12px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--card); font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.tile .icon { width: 24px; height: 24px; color: var(--accent); }
+.weight-row .avatar .icon { width: 22px; height: 22px; color: var(--muted); }
+
+/* Goals page */
+.chart-controls { display: flex; gap: 8px; margin-bottom: 12px; }
+.segmented.compact { flex: 1; margin: 0; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; }
+.segmented.compact button { padding: 8px 4px; font-size: 14px; }
+.segmented.compact button[hidden] { display: none; }
+.segmented.two { grid-template-columns: 1fr 1fr; }
+.progress-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.hero-row { display: flex; align-items: baseline; gap: 6px; margin: 2px 0; }
+.hero-row .big { font-size: 40px; font-weight: 700; line-height: 1.05; }
+.status-chip {
+  padding: 5px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; white-space: nowrap;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent);
+}
+.status-chip[data-tone="warn"] { background: color-mix(in srgb, var(--over) 14%, transparent); color: var(--over); }
+
+.chart { position: relative; margin-top: 12px; touch-action: pan-y; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart svg:focus { outline: none; }
+.chart svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .today { stroke: var(--line); stroke-width: 1; }
+.chart .plan { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+.chart .goal-dot { fill: var(--card); stroke: var(--muted); stroke-width: 2; }
+.chart .trend { stroke: var(--chart-line); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.chart .point { fill: var(--chart-point); stroke: var(--card); stroke-width: 2; }
+.chart .point.main { fill: var(--chart-line); }
+.chart .cross line { stroke: var(--muted); stroke-width: 1; }
+.chart .cross circle { fill: var(--chart-line); stroke: var(--card); stroke-width: 2; }
+.chart-tip {
+  position: absolute; top: -6px; display: flex; flex-direction: column; align-items: flex-start;
+  padding: 6px 10px; border-radius: 10px; background: var(--text); color: var(--bg);
+  font-size: 12px; line-height: 1.3; pointer-events: none; white-space: nowrap;
+}
+.chart-tip b { font-size: 15px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend .key { display: inline-block; }
+.legend .key.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--chart-point); }
+.legend .key.line { width: 16px; height: 2px; border-radius: 2px; background: var(--chart-line); }
+.legend .key.plan { width: 16px; border-top: 1.5px dashed var(--muted); }
+
+.goal-summary { font-size: 14px; margin: 2px 0 12px; }
+.goal-summary p { margin: 0 0 6px; }
+.warn-text { color: var(--over); }
+.goal-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.goal-links .link { padding-top: 10px; }
+.danger-link { color: var(--danger); }
+.inline-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.inline-inputs label { position: relative; display: block; }
+.inline-inputs input { padding-right: 34px; }
+.inline-inputs span { position: absolute; right: 12px; top: 50%; transform: translateY(-35%); color: var(--muted); font-size: 15px; pointer-events: none; }
+.list.rows li { padding: 10px 12px; }
+#planNote { margin-top: 0; }
+.field-hint { display: block; margin-top: 4px; font-size: 12px; }

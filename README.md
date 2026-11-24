@@ -5,11 +5,19 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
 
 ## What it does
 
-- **Dashboard**: today's calories, protein, carbs and fat, with meters that fill up toward your daily goals (protein red, carbs purple, fat yellow).
-- **Daily goals**: pick a preset and enter your calories to get your grams, or choose Custom to enter grams and get the calories (protein and carbs 4 kcal/g, fat 9 kcal/g).
-  - Balanced: 30% protein, 40% carbs, 30% fat
-  - High protein: 50% protein, 35% carbs, 15% fat
-  - Keto: 50% protein, 5% carbs, 45% fat
+- **Today**: the day's calories, protein, carbs and fat, with meters that fill up toward your daily goals (protein red, carbs purple, fat yellow), the foods you logged and that day's weigh-in. The arrows step through days.
+- **History**: the calendar button at the top right of Today swaps the day for your history: daily totals, weigh-ins, and 7- and 30-day averages. Tap a day to open it, or tap the calendar again to go back to the day you were on.
+- **The + menu**: add a custom food, scan a nutrition label, log your weight, or pick one of your saved foods.
+- **Weight and body fat**: log your weight (lb or kg) and, if you know it, your body fat % for any day. Logging the same day again replaces it.
+- **Goals**:
+  - a chart of your weigh-ins and their 7-day average (which smooths out day-to-day water weight), or of your body fat, over your goal, 1 month, 3 months or everything
+  - a weight goal: pick a goal weight and a date to get a weekly and daily guide, the pace you need from today to finish on time, and whether you're on track, ahead or behind
+  - about you: sex, age, height, activity level and units, used to estimate the calories you burn in a day
+  - daily nutrition: calories either **from my plan** (they follow your weight goal) or **set my own**, split into grams by a preset, or set the grams yourself:
+    - Balanced: 30% protein, 40% carbs, 30% fat
+    - High protein: 50% protein, 35% carbs, 15% fat
+    - Keto: 50% protein, 5% carbs, 45% fat
+    - Custom: enter grams and get the calories (protein and carbs 4 kcal/g, fat 9 kcal/g)
 - **My Foods**: save foods with calories, protein, carbs and fat per serving, a food emoji icon (only food and drink emojis are allowed), and a **default portion** that's filled in each time you log the food. Search matches the food's name or its icon ("apple" finds foods marked 🍎).
 - **Portion calculator**: log in servings or in any unit that fits the food:
   - weight: g, oz, lb, kg
@@ -19,10 +27,19 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
   Give a serving two measures (for example "2 tbsp = 32 g", as most labels print) to log it by both weight and volume.
 - **Custom foods**: add a one-off food, and optionally save it to My Foods.
 - **Scan a nutrition label**: take a photo and the app reads the serving size (both measures), calories, protein, carbs and fat for you to check. The text is read on your phone (Tesseract.js); the photo is never uploaded.
-- **History**: step back through previous days, or open the History tab for daily totals and 7- and 30-day averages.
-- **Account & backup** (optional): sign in to back up everything and sync it between your devices. See [Cloud backup and sync](#cloud-backup-and-sync-firebase).
-- **Export / import**: download all your data as a JSON file, or load one back, from Settings.
-- **Appearance**: Light, Dark or Automatic (follows the phone's setting), in Settings.
+- **Settings**: account and backup (see [Cloud backup and sync](#cloud-backup-and-sync-firebase)), Light/Dark/Automatic appearance, and export/import of all your data as a JSON file.
+
+## How the plan works
+
+All of this lives in [`js/plan.js`](js/plan.js), with tests in `tests/plan.test.mjs`.
+
+- **Current weight** is the average of your weigh-ins over the last 7 days, so one salty dinner doesn't look like a setback.
+- **Calories you burn** = resting calories × activity level (1.2 sedentary up to 1.9 extra active). Resting calories use the Katch-McArdle formula when you've logged body fat in the last 30 days (it's based on lean mass), and Mifflin-St Jeor otherwise (sex, age, height and weight).
+- **Your plan** runs from your weight and the date when you set the goal to the goal weight and date. "From today" is the pace still needed to finish on time, so if you fall behind or get ahead, the calories adjust.
+- **Daily calories** = calories burned ± about 7,700 kcal per kg (3,500 per lb) of change per week, spread over 7 days. For safety the pace is capped at 1% of your body weight a week when losing (0.5% when gaining), and calories never go below 1,500 (men), 1,200 (women) or 1,350 (other) unless you burn less than that.
+- **On track** means you're within normal day-to-day noise (the larger of 0.25 kg and 0.3% of your weight) of where the plan says you should be today.
+
+These are estimates, not medical advice.
 
 ## Run it
 
@@ -70,7 +87,7 @@ The Firebase emulators run sign-in and Firestore locally (they need Java 21 or n
 npm install
 ```
 
-Run the automated sync test. It needs Playwright with Chromium and checks two devices on one account, live updates, offline changes, security rules and sign-out:
+Run the automated sync test. It needs Playwright with Chromium and checks two devices on one account (foods, entries, weigh-ins, profile and goals), live updates, offline changes, security rules and sign-out:
 
 ```bash
 npm run test:sync
@@ -101,7 +118,7 @@ npm start
 npm test
 ```
 
-Unit tests for unit conversions, portion math, goal presets, the food-emoji list and the nutrition-label parser (including common OCR mistakes, such as "8g" being read as "89"). For sync, see [Testing sync](#testing-sync).
+Unit tests for unit conversions, portion math, goal presets, the weight-goal and calorie math, the food-emoji list and the nutrition-label parser (including common OCR mistakes, such as "8g" being read as "89"). For sync, see [Testing sync](#testing-sync).
 
 ## Files
 
@@ -114,7 +131,8 @@ js/sync.js                  cloud backup and sync (Firebase)
 js/firebase-config.js       your Firebase project's config (null = sync off)
 js/vendor/firebase.js       Firebase SDK, bundled by `npm run vendor` from scripts/firebase-entry.js
 js/units.js                 unit conversion + portion math
-js/goals.js                 daily goal presets + macro/calorie math
+js/goals.js                 daily nutrition presets + macro/calorie math
+js/plan.js                  weight goals, calories burned, calorie targets
 js/food-emojis.js           the allowed food emoji icons
 js/label-parser.js          OCR text → nutrition values
 js/scanner.js               camera photo → OCR (Tesseract.js)

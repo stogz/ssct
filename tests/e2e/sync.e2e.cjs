@@ -107,8 +107,9 @@ async function adminList(path) {
   await createFood(A.page, { name: 'Oats', emoji: '🥣', servingAmount: 40, servingUnit: 'g', calories: 150, protein: 5, carbs: 27, fat: 3 });
   await logFood(A.page, 'Oats');
   check(await total(A.page) === '150', 'A logged 150 kcal before signing in');
-  await A.page.click('.tabs [data-view=settings]');
+  await A.page.click('.tabs [data-view=goals]');
   await A.page.fill('#goalCalories', '2000');
+  await A.page.click('.tabs [data-view=settings]');
   check(await A.page.isVisible('#accountCard'), 'account card shown when Firebase is configured');
 
   // ---------- A creates an account: local data goes up ----------
@@ -165,6 +166,30 @@ async function adminList(path) {
   await waitStatus(A.page, 'synced', 30000);
   await waitTotal(B.page, '300', 30000);
   check(true, "A's offline entry reached B after reconnecting");
+
+  // ---------- Weights, profile and weight goal sync too ----------
+  await A.page.click('.tabs [data-view=today]');
+  await A.page.click('#fab');
+  await A.page.click('#logWeightBtn');
+  await A.page.selectOption('#weightForm [name=unit]', 'lb');
+  await A.page.fill('#weightForm [name=weight]', '182.4');
+  await A.page.fill('#weightForm [name=bodyFat]', '21');
+  await A.page.click('#weightForm button[type=submit]');
+  await A.page.click('.tabs [data-view=goals]');
+  await A.page.fill('#profileForm [name=age]', '35');
+  await A.page.fill('#weightGoalForm [name=target]', '175');
+  const later = new Date(Date.now() + 60 * 86400000);
+  const laterKey = `${later.getFullYear()}-${String(later.getMonth() + 1).padStart(2, '0')}-${String(later.getDate()).padStart(2, '0')}`;
+  await A.page.fill('#weightGoalForm [name=date]', laterKey);
+  await A.page.click('#saveGoalBtn');
+  await B.page.click('.tabs [data-view=today]');
+  const weightOnB = await B.page.waitForFunction(() => document.querySelector('#entryList li[data-weight]')?.textContent.includes('182.4'), null, { timeout: 20000 })
+    .then(() => true).catch(() => false);
+  check(weightOnB, "A's weigh-in reached B");
+  await B.page.click('.tabs [data-view=goals]');
+  const profileOnB = await B.page.waitForFunction((d) => document.querySelector('#profileForm [name=age]').value === '35'
+    && document.querySelector('#weightGoalForm [name=date]').value === d, laterKey, { timeout: 20000 }).then(() => true).catch(() => false);
+  check(profileOnB, "A's profile and weight goal reached B");
 
   // ---------- Security rules: another user can't read A's data ----------
   const signUp = await (await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-key`, {
@@ -230,6 +255,7 @@ async function adminList(path) {
   const uidC = await C.page.evaluate(() => JSON.parse(localStorage.getItem('ssct-sync')).uid);
   const cFoods = await adminList(`users/${uidC}/foods`);
   check(cFoods.length === 1 && cFoods[0].fields.name.stringValue === 'Old toast', 'v1 data uploaded on first sign-in');
+  await C.page.click('.tabs [data-view=goals]');
   check(await C.page.inputValue('#goalCalories') === '1800', 'old calorie goal carried over (1800)');
 
   const errors = [...A.page.errors, ...B.page.errors, ...C.page.errors];
