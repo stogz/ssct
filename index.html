@@ -26,19 +26,23 @@
     <!-- TODAY -->
     <section id="view-today" class="view">
       <div class="card summary">
-        <div class="ring-row">
-          <div>
-            <div class="big" id="sumCalories">0</div>
-            <div class="muted" id="sumGoal">kcal</div>
-          </div>
-          <div class="remaining" id="sumRemaining"></div>
-        </div>
-        <div class="bar"><div id="sumBar"></div></div>
+        <div class="cal-total"><span class="big" id="sumCalories">0</span><span class="muted">kcal</span></div>
+        <div class="meter cal" id="meter-calories" role="progressbar" aria-label="Calories" aria-valuemin="0" hidden><div></div></div>
         <div class="macros">
-          <div><span id="sumProtein">0</span>g<small>protein</small></div>
-          <div><span id="sumCarbs">0</span>g<small>carbs</small></div>
-          <div><span id="sumFat">0</span>g<small>fat</small></div>
+          <div class="macro">
+            <b id="sum-protein">0g</b><small>protein</small>
+            <div class="meter protein" id="meter-protein" role="progressbar" aria-label="Protein" aria-valuemin="0" hidden><div></div></div>
+          </div>
+          <div class="macro">
+            <b id="sum-carbs">0g</b><small>carbs</small>
+            <div class="meter carbs" id="meter-carbs" role="progressbar" aria-label="Carbs" aria-valuemin="0" hidden><div></div></div>
+          </div>
+          <div class="macro">
+            <b id="sum-fat">0g</b><small>fat</small>
+            <div class="meter fat" id="meter-fat" role="progressbar" aria-label="Fat" aria-valuemin="0" hidden><div></div></div>
+          </div>
         </div>
+        <button type="button" class="link" id="setGoalsHint" hidden>Set your daily goals to track progress →</button>
       </div>
       <ul id="entryList" class="list"></ul>
       <p id="emptyDay" class="empty">Nothing logged yet.</p>
@@ -65,15 +69,27 @@
     <!-- SETTINGS -->
     <section id="view-settings" class="view" hidden>
       <div class="card">
-        <label class="field">Daily calorie goal
-          <input type="number" id="goalInput" inputmode="numeric" min="0" placeholder="e.g. 2000">
+        <h2 class="card-title">Daily goals</h2>
+        <div class="modes" id="goalModes"></div>
+        <label class="field">Calories
+          <input type="number" id="goalCalories" inputmode="numeric" min="0" placeholder="e.g. 2000">
         </label>
-        <label class="field">Protein goal (g, optional)
-          <input type="number" id="proteinGoalInput" inputmode="numeric" min="0">
-        </label>
+        <div class="grid3">
+          <label class="field"><span class="dot protein"></span>Protein (g)
+            <input type="number" id="goal-protein" inputmode="decimal" min="0" step="any">
+          </label>
+          <label class="field"><span class="dot carbs"></span>Carbs (g)
+            <input type="number" id="goal-carbs" inputmode="decimal" min="0" step="any">
+          </label>
+          <label class="field"><span class="dot fat"></span>Fat (g)
+            <input type="number" id="goal-fat" inputmode="decimal" min="0" step="any">
+          </label>
+        </div>
+        <p class="muted small" id="goalHint"></p>
       </div>
       <div class="card">
-        <p class="muted">Your data lives only on this device. Export a backup now and then.</p>
+        <h2 class="card-title">Your data</h2>
+        <p class="muted small">Saved on this device only. Clearing this site's data in your browser, or deleting the app, erases it, so export a backup now and then.</p>
         <div class="row gap">
           <button class="btn grow" id="exportBtn">Export backup</button>
           <button class="btn grow" id="importBtn">Import backup</button>
@@ -119,9 +135,14 @@
       </div>
       <button type="button" class="btn full" id="scanIntoFormBtn">📷 Fill from nutrition label</button>
       <p id="scanStatus" class="muted small" hidden></p>
-      <label class="field">Name
-        <input name="name" required placeholder="e.g. Greek yogurt" autocomplete="off">
-      </label>
+      <div class="name-row">
+        <button type="button" class="emoji-btn empty" id="emojiBtn" aria-label="Choose an icon" aria-expanded="false" aria-controls="emojiGrid">+</button>
+        <label class="field grow">Name
+          <input name="name" required placeholder="e.g. Greek yogurt" autocomplete="off">
+        </label>
+      </div>
+      <div class="emoji-grid" id="emojiGrid" hidden></div>
+      <input type="hidden" name="emoji">
       <fieldset>
         <legend>Nutrition per serving</legend>
         <div class="grid2">
@@ -131,6 +152,15 @@
           <label class="field">Unit
             <select name="servingUnit"></select>
           </label>
+          <label class="field">Also equals (optional)
+            <input name="servingAmount2" type="number" step="any" min="0" inputmode="decimal" placeholder="e.g. 32">
+          </label>
+          <label class="field">Unit
+            <select name="servingUnit2"></select>
+          </label>
+        </div>
+        <p class="muted small hint">Lets you log it by weight and by spoon or cup, e.g. 2 tbsp = 32 g.</p>
+        <div class="grid2">
           <label class="field">Calories
             <input name="calories" type="number" step="any" min="0" inputmode="decimal" required>
           </label>

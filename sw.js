@@ -1,8 +1,8 @@
 // Offline support: cache the app shell (network-first so updates show up right away).
-const CACHE = 'ssct-v1';
+const CACHE = 'ssct-v2';
 const SHELL = [
   './', 'index.html', 'style.css', 'manifest.webmanifest',
-  'js/app.js', 'js/db.js', 'js/units.js', 'js/label-parser.js', 'js/scanner.js',
+  'js/app.js', 'js/db.js', 'js/units.js', 'js/goals.js', 'js/food-emojis.js', 'js/label-parser.js', 'js/scanner.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 
