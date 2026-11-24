@@ -5,10 +5,11 @@
 //  - listens for changes made on their other devices and saves them here.
 // When the same thing was changed in two places, the newer edit wins.
 //
-// Firestore layout: users/{uid}/foods/{id}, users/{uid}/entries/{id} and users/{uid}/settings/main.
+// Firestore layout: users/{uid}/foods/{id}, users/{uid}/entries/{id}, users/{uid}/weights/{date}
+// and users/{uid}/settings/main (nutrition goals, profile, weight goal).
 // Every document also gets `syncedAt` (server time), so a device can ask for "everything changed since X".
 import { firebaseConfig } from './firebase-config.js';
-import { db, settings, localChanges, STORES } from './db.js';
+import { db, settings, localChanges, STORES, SYNCED_SETTINGS } from './db.js';
 import {
   initializeApp, initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, onAuthStateChanged,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut as firebaseSignOut,
@@ -138,8 +139,7 @@ export function startSync({ emulator = false, onState, onRemoteChange }) {
     }
     unsubscribers.push(onSnapshot(doc(fs, 'users', uidNow, 'settings', 'main'), (snap) => {
       if (!snap.exists() || snap.metadata.hasPendingWrites) return;
-      const { goals, updatedAt } = snap.data();
-      if (settings.applyRemote({ goals, updatedAt })) onRemoteChange();
+      if (settings.applyRemote(snap.data())) onRemoteChange();
       report();
     }, onListenError));
   }
@@ -180,7 +180,10 @@ export function startSync({ emulator = false, onState, onRemoteChange }) {
       newer = null;
       const snap = await t.get(ref);
       if (snap.exists() && snap.data().updatedAt >= local.updatedAt) newer = snap.data();
-      else t.set(ref, { goals: local.goals ?? null, updatedAt: local.updatedAt, syncedAt: serverTimestamp() });
+      else {
+        const synced = Object.fromEntries(SYNCED_SETTINGS.map((key) => [key, local[key] ?? null]));
+        t.set(ref, { ...synced, updatedAt: local.updatedAt, syncedAt: serverTimestamp() });
+      }
     });
     if (newer && settings.applyRemote(newer)) onRemoteChange();
     settings.markClean(local.updatedAt);
