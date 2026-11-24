@@ -33,6 +33,29 @@ function protectStorage() {
   navigator.storage.persisted().then((ok) => ok || navigator.storage.persist()).catch(() => {});
 }
 
+// ---------- appearance: Light / Dark / Automatic ----------
+// Saved on this device only (not synced, kept on sign-out). index.html applies it before the page draws.
+const THEME_KEY = 'ssct-theme';
+
+function setTheme(theme) {
+  try {
+    if (theme === 'auto') localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, theme);
+  } catch { /* private mode: still applies until the page closes */ }
+  if (theme === 'auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  renderTheme();
+}
+
+function renderTheme() {
+  const theme = document.documentElement.dataset.theme || 'auto';
+  for (const b of document.querySelectorAll('#themeOptions button')) {
+    const on = b.dataset.themeOption === theme;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+}
+
 // ---------- helpers ----------
 function toast(msg) {
   const t = $('#toast');
@@ -116,6 +139,7 @@ function render() {
   if (state.view === 'settings') {
     renderGoals();
     renderAccount();
+    renderTheme();
   }
 }
 
@@ -381,7 +405,7 @@ let foodCtx = null;
 
 function buildEmojiGrid() {
   $('#emojiGrid').innerHTML = `
-    <div class="emoji-head"><span>Pick an icon</span><button type="button" class="link" data-emoji="">No icon</button></div>
+    <div class="emoji-head"><span>Pick an icon</span><button type="button" class="link" data-emoji=""><span class="icon icon-none" aria-hidden="true"></span>No icon</button></div>
     ${FOOD_EMOJI_GROUPS.map((g) => `
       <div class="emoji-group">${esc(g.label)}</div>
       ${g.items.map(([e, name]) => `<button type="button" class="cell" data-emoji="${e}" title="${esc(name)}" aria-label="${esc(name)}">${e}</button>`).join('')}`).join('')}`;
@@ -721,6 +745,12 @@ function wire() {
     if (!li) return;
     state.date = li.dataset.date;
     showView('today');
+  });
+
+  // Settings: appearance
+  $('#themeOptions').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-theme-option]');
+    if (b) setTheme(b.dataset.themeOption);
   });
 
   // Settings: goals

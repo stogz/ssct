@@ -10,6 +10,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <script>
+    // Apply the saved Light/Dark choice before the page draws, so it never flashes the wrong theme.
+    try { var t = localStorage.getItem('ssct-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -52,7 +56,7 @@
     <section id="view-foods" class="view" hidden>
       <div class="row gap">
         <button class="btn primary grow" id="newFoodBtn">+ New food</button>
-        <button class="btn" id="scanFoodBtn">📷 Scan label</button>
+        <button class="btn" id="scanFoodBtn"><span class="icon icon-camera" aria-hidden="true"></span>Scan label</button>
       </div>
       <input type="search" id="foodSearch" class="search" placeholder="Search my foods">
       <ul id="foodList" class="list"></ul>
@@ -112,6 +116,15 @@
         </div>
       </div>
       <div class="card">
+        <h2 class="card-title">Appearance</h2>
+        <div class="segmented" id="themeOptions" role="group" aria-label="Theme">
+          <button type="button" data-theme-option="light">Light</button>
+          <button type="button" data-theme-option="dark">Dark</button>
+          <button type="button" data-theme-option="auto">Automatic</button>
+        </div>
+        <p class="muted small">Automatic follows your phone's light or dark setting. This choice is saved on this device only.</p>
+      </div>
+      <div class="card">
         <h2 class="card-title">Your data</h2>
         <p class="muted small" id="dataNote">Saved on this device only. Clearing this site's data in your browser, or deleting the app, erases it, so export a backup now and then.</p>
         <div class="row gap">
@@ -120,16 +133,17 @@
         </div>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
+      <p class="credits muted small">Icons by <a href="https://www.streamlinehq.com" target="_blank" rel="noopener">Streamline</a></p>
     </section>
   </main>
 
   <button id="fab" class="fab" aria-label="Add food">+</button>
 
   <nav class="tabs">
-    <button data-view="today" class="active">🍽️<span>Today</span></button>
-    <button data-view="foods">⭐<span>My Foods</span></button>
-    <button data-view="history">📅<span>History</span></button>
-    <button data-view="settings">⚙️<span>Settings</span></button>
+    <button data-view="today" class="active"><span class="icon icon-home" aria-hidden="true"></span><span>Today</span></button>
+    <button data-view="foods"><span class="icon icon-star" aria-hidden="true"></span><span>My Foods</span></button>
+    <button data-view="history"><span class="icon icon-calendar" aria-hidden="true"></span><span>History</span></button>
+    <button data-view="settings"><span class="icon icon-settings" aria-hidden="true"></span><span>Settings</span></button>
   </nav>
 
   <!-- Hidden camera input shared by every "Scan label" button -->
@@ -142,8 +156,8 @@
       <button class="x" data-close>✕</button>
     </div>
     <div class="row gap">
-      <button class="btn grow" id="quickAddBtn">✏️ Custom food</button>
-      <button class="btn grow" id="scanAddBtn">📷 Scan label</button>
+      <button class="btn grow" id="quickAddBtn"><span class="icon icon-pencil" aria-hidden="true"></span>Custom food</button>
+      <button class="btn grow" id="scanAddBtn"><span class="icon icon-camera" aria-hidden="true"></span>Scan label</button>
     </div>
     <input type="search" id="addSearch" class="search" placeholder="Search my foods">
     <ul id="addList" class="list compact"></ul>
@@ -157,7 +171,7 @@
         <h2 id="foodDialogTitle">New food</h2>
         <button type="button" class="x" data-close>✕</button>
       </div>
-      <button type="button" class="btn full" id="scanIntoFormBtn">📷 Fill from nutrition label</button>
+      <button type="button" class="btn full" id="scanIntoFormBtn"><span class="icon icon-camera" aria-hidden="true"></span>Fill from nutrition label</button>
       <p id="scanStatus" class="muted small" hidden></p>
       <div class="name-row">
         <button type="button" class="emoji-btn empty" id="emojiBtn" aria-label="Choose an icon" aria-expanded="false" aria-controls="emojiGrid">+</button>
@@ -212,7 +226,7 @@
       </fieldset>
       <label class="check" id="saveFavRow"><input type="checkbox" name="saveFav" checked> Save to My Foods</label>
       <div class="row gap">
-        <button type="button" class="btn danger" id="deleteFoodBtn">Delete</button>
+        <button type="button" class="btn danger" id="deleteFoodBtn"><span class="icon icon-trash" aria-hidden="true"></span>Delete</button>
         <button type="submit" class="btn primary grow" id="foodSubmitBtn">Save</button>
       </div>
     </form>
@@ -242,7 +256,7 @@
         <div><b id="pvFat">0</b><small>fat</small></div>
       </div>
       <div class="row gap">
-        <button type="button" class="btn danger" id="deleteEntryBtn">Remove</button>
+        <button type="button" class="btn danger" id="deleteEntryBtn"><span class="icon icon-trash" aria-hidden="true"></span>Remove</button>
         <button type="submit" class="btn primary grow" id="portionSubmitBtn">Add</button>
       </div>
     </form>

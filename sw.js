@@ -1,10 +1,12 @@
 // Offline support: cache the app shell (network-first so updates show up right away).
-const CACHE = 'ssct-v3';
+const CACHE = 'ssct-v4';
 const SHELL = [
   './', 'index.html', 'style.css', 'manifest.webmanifest',
   'js/app.js', 'js/db.js', 'js/units.js', 'js/goals.js', 'js/food-emojis.js', 'js/label-parser.js', 'js/scanner.js',
   'js/firebase-config.js', 'js/sync.js', 'js/vendor/firebase.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
+  'icons/ui/home.svg', 'icons/ui/star.svg', 'icons/ui/calendar.svg', 'icons/ui/settings.svg',
+  'icons/ui/pencil.svg', 'icons/ui/camera.svg', 'icons/ui/trash.svg', 'icons/ui/none.svg',
 ];
 
 self.addEventListener('install', (e) => {
