@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16a34a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SSCT">
+  <title>Calorie Tracker</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="title">Today</h1>
+    <div id="datenav" class="datenav">
+      <button id="prevDay" aria-label="Previous day">‹</button>
+      <button id="dateLabel" class="datelabel"></button>
+      <button id="nextDay" aria-label="Next day">›</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- TODAY -->
+    <section id="view-today" class="view">
+      <div class="card summary">
+        <div class="ring-row">
+          <div>
+            <div class="big" id="sumCalories">0</div>
+            <div class="muted" id="sumGoal">kcal</div>
+          </div>
+          <div class="remaining" id="sumRemaining"></div>
+        </div>
+        <div class="bar"><div id="sumBar"></div></div>
+        <div class="macros">
+          <div><span id="sumProtein">0</span>g<small>protein</small></div>
+          <div><span id="sumCarbs">0</span>g<small>carbs</small></div>
+          <div><span id="sumFat">0</span>g<small>fat</small></div>
+        </div>
+      </div>
+      <ul id="entryList" class="list"></ul>
+      <p id="emptyDay" class="empty">Nothing logged yet.</p>
+    </section>
+
+    <!-- FOODS -->
+    <section id="view-foods" class="view" hidden>
+      <div class="row gap">
+        <button class="btn primary grow" id="newFoodBtn">+ New food</button>
+        <button class="btn" id="scanFoodBtn">📷 Scan label</button>
+      </div>
+      <input type="search" id="foodSearch" class="search" placeholder="Search my foods">
+      <ul id="foodList" class="list"></ul>
+      <p id="emptyFoods" class="empty">No saved foods yet. Add one or scan a label.</p>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="view-history" class="view" hidden>
+      <div class="card" id="averages"></div>
+      <ul id="historyList" class="list"></ul>
+      <p id="emptyHistory" class="empty">No history yet.</p>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view" hidden>
+      <div class="card">
+        <label class="field">Daily calorie goal
+          <input type="number" id="goalInput" inputmode="numeric" min="0" placeholder="e.g. 2000">
+        </label>
+        <label class="field">Protein goal (g, optional)
+          <input type="number" id="proteinGoalInput" inputmode="numeric" min="0">
+        </label>
+      </div>
+      <div class="card">
+        <p class="muted">Your data lives only on this device. Export a backup now and then.</p>
+        <div class="row gap">
+          <button class="btn grow" id="exportBtn">Export backup</button>
+          <button class="btn grow" id="importBtn">Import backup</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+    </section>
+  </main>
+
+  <button id="fab" class="fab" aria-label="Add food">+</button>
+
+  <nav class="tabs">
+    <button data-view="today" class="active">🍽️<span>Today</span></button>
+    <button data-view="foods">⭐<span>My Foods</span></button>
+    <button data-view="history">📅<span>History</span></button>
+    <button data-view="settings">⚙️<span>Settings</span></button>
+  </nav>
+
+  <!-- Hidden camera input shared by every "Scan label" button -->
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+
+  <!-- ADD SHEET: pick a saved food, quick add, or scan -->
+  <dialog id="addDialog" class="sheet">
+    <div class="sheet-head">
+      <h2>Add food</h2>
+      <button class="x" data-close>✕</button>
+    </div>
+    <div class="row gap">
+      <button class="btn grow" id="quickAddBtn">✏️ Custom food</button>
+      <button class="btn grow" id="scanAddBtn">📷 Scan label</button>
+    </div>
+    <input type="search" id="addSearch" class="search" placeholder="Search my foods">
+    <ul id="addList" class="list compact"></ul>
+    <p id="addEmpty" class="empty">No saved foods yet.</p>
+  </dialog>
+
+  <!-- FOOD EDITOR -->
+  <dialog id="foodDialog" class="sheet">
+    <form id="foodForm" method="dialog">
+      <div class="sheet-head">
+        <h2 id="foodDialogTitle">New food</h2>
+        <button type="button" class="x" data-close>✕</button>
+      </div>
+      <button type="button" class="btn full" id="scanIntoFormBtn">📷 Fill from nutrition label</button>
+      <p id="scanStatus" class="muted small" hidden></p>
+      <label class="field">Name
+        <input name="name" required placeholder="e.g. Greek yogurt" autocomplete="off">
+      </label>
+      <fieldset>
+        <legend>Nutrition per serving</legend>
+        <div class="grid2">
+          <label class="field">Serving size
+            <input name="servingAmount" type="number" step="any" min="0" inputmode="decimal" required>
+          </label>
+          <label class="field">Unit
+            <select name="servingUnit"></select>
+          </label>
+          <label class="field">Calories
+            <input name="calories" type="number" step="any" min="0" inputmode="decimal" required>
+          </label>
+          <label class="field">Protein (g)
+            <input name="protein" type="number" step="any" min="0" inputmode="decimal">
+          </label>
+          <label class="field">Carbs (g)
+            <input name="carbs" type="number" step="any" min="0" inputmode="decimal">
+          </label>
+          <label class="field">Fat (g)
+            <input name="fat" type="number" step="any" min="0" inputmode="decimal">
+          </label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Default portion when logging</legend>
+        <div class="grid2">
+          <label class="field">Amount
+            <input name="defaultAmount" type="number" step="any" min="0" inputmode="decimal" required>
+          </label>
+          <label class="field">Unit
+            <select name="defaultUnit"></select>
+          </label>
+        </div>
+      </fieldset>
+      <label class="check" id="saveFavRow"><input type="checkbox" name="saveFav" checked> Save to My Foods</label>
+      <div class="row gap">
+        <button type="button" class="btn danger" id="deleteFoodBtn">Delete</button>
+        <button type="submit" class="btn primary grow" id="foodSubmitBtn">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- PORTION CALCULATOR -->
+  <dialog id="portionDialog" class="sheet">
+    <form id="portionForm" method="dialog">
+      <div class="sheet-head">
+        <h2 id="portionTitle">Food</h2>
+        <button type="button" class="x" data-close>✕</button>
+      </div>
+      <p class="muted small" id="portionServing"></p>
+      <div class="grid2">
+        <label class="field">How much?
+          <input name="amount" type="number" step="any" min="0" inputmode="decimal" required>
+        </label>
+        <label class="field">Unit
+          <select name="unit"></select>
+        </label>
+      </div>
+      <div class="chips" id="portionChips"></div>
+      <div class="card preview">
+        <div><b id="pvCalories">0</b><small>kcal</small></div>
+        <div><b id="pvProtein">0</b><small>protein</small></div>
+        <div><b id="pvCarbs">0</b><small>carbs</small></div>
+        <div><b id="pvFat">0</b><small>fat</small></div>
+      </div>
+      <div class="row gap">
+        <button type="button" class="btn danger" id="deleteEntryBtn">Remove</button>
+        <button type="submit" class="btn primary grow" id="portionSubmitBtn">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
