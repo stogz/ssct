@@ -1,2 +1,2 @@
-# ssct
-Stupidly simple calorie tracker by Sam Stogsdill.
+# Stupidly Simple Calorie Tracker
+by Sam Stogsdill.
