@@ -12,10 +12,11 @@
   --carbs: #a855f7;
   --fat: #eab308;
   --radius: 14px;
-  color-scheme: light dark;
+  color-scheme: light;
 }
+/* Dark colors: when the phone is in dark mode and the theme is Automatic, or when Dark is picked in Settings. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0f1311;
     --card: #1a201c;
     --text: #e8ece9;
@@ -26,9 +27,26 @@
     --protein: #f87171;
     --carbs: #c084fc;
     --fat: #facc15;
+    color-scheme: dark;
   }
 }
-* { box-sizing: border-box; }
+:root[data-theme="dark"] {
+  --bg: #0f1311;
+  --card: #1a201c;
+  --text: #e8ece9;
+  --muted: #96a09a;
+  --line: #2a322d;
+  --accent: #22c55e;
+  --accent-ink: #062b14;
+  --protein: #f87171;
+  --carbs: #c084fc;
+  --fat: #facc15;
+  color-scheme: dark;
+}
+/* No double-tap to zoom (iOS Safari); pinch zoom still works. */
+* { box-sizing: border-box; touch-action: manipulation; }
+/* Quick taps on controls shouldn't select their text. */
+button, .tabs { -webkit-user-select: none; user-select: none; }
 html, body { margin: 0; }
 body {
   background: var(--bg);
@@ -79,7 +97,10 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .meter.thin { height: 4px; margin-top: 6px; }
 @media (prefers-reduced-motion: reduce) { .meter > div { transition: none; } }
 
-.link { background: none; border: 0; padding: 14px 0 0; color: var(--accent); font-weight: 600; cursor: pointer; }
+.link {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: 0; padding: 14px 0 0; color: var(--accent); font-weight: 600; cursor: pointer;
+}
 .card-title { font-size: 17px; margin: 0 0 12px; }
 .card-title + .muted { margin-top: 0; }
 
@@ -142,6 +163,19 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .auth-message.error { color: var(--danger); }
 #authForm.busy button { opacity: .6; pointer-events: none; }
 
+/* Appearance: Light / Dark / Automatic */
+.segmented {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; margin-bottom: 8px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+}
+.segmented button {
+  padding: 10px 6px; border: 0; border-radius: 9px; background: none;
+  color: var(--muted); font-weight: 600; cursor: pointer;
+}
+.segmented button.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .18); }
+.credits { margin: 4px 0 16px; text-align: center; }
+.credits a { color: inherit; }
+
 .list { list-style: none; margin: 0; padding: 0; }
 .list li {
   display: flex; align-items: center; gap: 12px;
@@ -155,6 +189,7 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .list.compact { max-height: 55vh; overflow-y: auto; }
 
 .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   border: 1px solid var(--line); background: var(--card); border-radius: 12px;
   padding: 12px 16px; font-weight: 600; cursor: pointer;
 }
@@ -178,9 +213,30 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
   background: var(--card); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
-.tabs button { background: none; border: 0; padding: 8px 0 10px; font-size: 20px; cursor: pointer; opacity: .55; }
-.tabs button span { display: block; font-size: 11px; font-weight: 600; }
-.tabs button.active { opacity: 1; color: var(--accent); }
+.tabs button {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 0 10px; border: 0; background: none; color: var(--muted); cursor: pointer;
+}
+.tabs button span:not(.icon) { font-size: 11px; font-weight: 600; }
+.tabs .icon { width: 24px; height: 24px; }
+.tabs button.active { color: var(--accent); }
+
+/* Interface icons (Streamline Core): solid SVGs used as masks, so they take the text color. */
+.icon {
+  display: inline-block; flex: none; width: 20px; height: 20px; background-color: currentColor;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+}
+.icon-home { -webkit-mask-image: url(icons/ui/home.svg); mask-image: url(icons/ui/home.svg); }
+.icon-star { -webkit-mask-image: url(icons/ui/star.svg); mask-image: url(icons/ui/star.svg); }
+.icon-calendar { -webkit-mask-image: url(icons/ui/calendar.svg); mask-image: url(icons/ui/calendar.svg); }
+.icon-settings { -webkit-mask-image: url(icons/ui/settings.svg); mask-image: url(icons/ui/settings.svg); }
+.icon-pencil { -webkit-mask-image: url(icons/ui/pencil.svg); mask-image: url(icons/ui/pencil.svg); }
+.icon-camera { -webkit-mask-image: url(icons/ui/camera.svg); mask-image: url(icons/ui/camera.svg); }
+.icon-trash { -webkit-mask-image: url(icons/ui/trash.svg); mask-image: url(icons/ui/trash.svg); }
+.icon-none { -webkit-mask-image: url(icons/ui/none.svg); mask-image: url(icons/ui/none.svg); }
+.link .icon { width: 16px; height: 16px; }
 
 /* Bottom sheets */
 dialog.sheet {

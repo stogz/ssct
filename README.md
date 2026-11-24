@@ -22,6 +22,7 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
 - **History**: step back through previous days, or open the History tab for daily totals and 7- and 30-day averages.
 - **Account & backup** (optional): sign in to back up everything and sync it between your devices. See [Cloud backup and sync](#cloud-backup-and-sync-firebase).
 - **Export / import**: download all your data as a JSON file, or load one back, from Settings.
+- **Appearance**: Light, Dark or Automatic (follows the phone's setting), in Settings.
 
 ## Run it
 
@@ -118,7 +119,13 @@ js/food-emojis.js           the allowed food emoji icons
 js/label-parser.js          OCR text → nutrition values
 js/scanner.js               camera photo → OCR (Tesseract.js)
 sw.js                       offline caching
+icons/ui/                   interface icons (SVG)
 firestore.rules             Firestore security rules
 firebase.json               emulator settings
 tests/                      unit tests; tests/e2e has the sync test
 ```
+
+## Credits
+
+Interface icons are based on [Streamline](https://www.streamlinehq.com)'s Core Solid set, used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The star is Streamline's own SVG; the others were redrawn as vectors from 48px PNGs.
+
