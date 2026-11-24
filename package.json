@@ -3,7 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "python3 -m http.server 8080",
-    "test": "node --test tests/*.test.mjs"
+    "start": "python3 -m http.server 8000",
+    "test": "node --test tests/*.test.mjs",
+    "test:sync": "firebase emulators:exec --only auth,firestore --project demo-ssct \"node tests/e2e/sync.e2e.cjs\"",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-ssct",
+    "vendor": "esbuild scripts/firebase-entry.js --bundle --format=esm --platform=browser --target=es2020 --minify --legal-comments=eof --outfile=js/vendor/firebase.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "firebase": "13.2.0",
+    "firebase-tools": "15.35.0"
   }
 }

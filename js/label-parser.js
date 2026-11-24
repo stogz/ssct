@@ -1,6 +1,6 @@
-// Turns raw OCR text from a nutrition label into { name?, calories, protein, carbs, fat, servingAmount, servingUnit }.
+// Turns raw OCR text from a nutrition label into { calories, protein, carbs, fat, servingAmount, servingUnit, servingAmount2, servingUnit2 }.
 // Every field may be null if it couldn't be found — the user always reviews the result before saving.
-import { normalizeUnit } from './units.js';
+import { normalizeUnit, convertible } from './units.js';
 
 const NUM = String.raw`(\d+(?:[.,]\d+)?)`;
 
@@ -73,27 +73,45 @@ function findCalories(lines, text) {
   return null;
 }
 
+// Serving size, keeping both measures a label gives, e.g. "2 tbsp (32g)" -> 2 tbsp + 32 g.
 function findServing(lines, text) {
+  const result = (first, second) => ({
+    servingAmount: first?.amount ?? null,
+    servingUnit: first?.unit ?? null,
+    servingAmount2: second?.amount ?? null,
+    servingUnit2: second?.unit ?? null,
+  });
+
+  // EU/UK labels: the first column of numbers is per 100 g / 100 ml.
+  const per100 = text.match(/per\s*100\s*(g|ml)\b/i);
+  if (per100) return result({ amount: 100, unit: normalizeUnit(per100[1]) });
+
   const line = lines.find((l) => /serv\w*\s*size|serving\s*:|portion/i.test(l));
-  if (line) {
-    const rest = line.replace(/.*?(serv\w*\s*size|serving\s*:|portion)\s*:?/i, '');
-    // Prefer metric value in parentheses: "2/3 cup (55g)".
-    const metric = rest.match(new RegExp(`\\(?\\s*(?:about\\s*)?${NUM}\\s*(g|grams?|ml|mL)\\b`, 'i'));
-    if (metric) return { servingAmount: toNum(metric[1]), servingUnit: normalizeUnit(metric[2]) };
-    // "(559)" is almost always "(55g)" with the g misread as 9.
+  if (!line) return result(null, null);
+  const rest = line.replace(/.*?(serv\w*\s*size|serving\s*:|portion)\s*:?/i, '');
+
+  // Metric measure, usually in parentheses: "(55g)". "(559)" is almost always "(55g)" with the g misread as 9.
+  let metric = null;
+  const m = rest.match(new RegExp(`${NUM}\\s*(g|grams?|ml)\\b`, 'i'));
+  if (m) metric = { amount: toNum(m[1]), unit: normalizeUnit(m[2]) };
+  else {
     const misread = rest.match(/\(\s*(\d+)9\s*\)/);
-    if (misread) return { servingAmount: Number(misread[1]), servingUnit: 'g' };
-    const qty = rest.match(/((?:\d+\s+)?\d+\/\d+|\d+(?:[.,]\d+)?|[½⅓⅔¼¾])\s*([a-zA-Z][a-zA-Z .]*)/);
-    if (qty) {
-      const unitWord = qty[2].trim().split(/\s+/).slice(0, 2);
-      const unit = normalizeUnit(unitWord.join(' ')) || normalizeUnit(unitWord[0]);
-      const amount = parseQuantity(qty[1]);
-      if (amount) return { servingAmount: amount, servingUnit: unit || 'piece' };
-    }
+    if (misread) metric = { amount: Number(misread[1]), unit: 'g' };
   }
-  const per = text.match(/per\s*(\d+)\s*(g|ml)\b/i);
-  if (per) return { servingAmount: Number(per[1]), servingUnit: normalizeUnit(per[2]) };
-  return { servingAmount: null, servingUnit: null };
+
+  // Household measure before the parentheses: "2/3 cup", "1 1/2 tbsp", "1 bar", "about 12 chips".
+  let household = null;
+  const q = rest.split('(')[0].match(/((?:\d+\s+)?\d+\/\d+|\d+(?:[.,]\d+)?|[½⅓⅔¼¾])\s*([a-zA-Z][a-zA-Z .]*)/);
+  if (q) {
+    const words = q[2].trim().split(/\s+/).slice(0, 2);
+    const amount = parseQuantity(q[1]);
+    const unit = normalizeUnit(words.join(' ')) || normalizeUnit(words[0]) || 'piece';
+    if (amount) household = { amount, unit };
+  }
+
+  // The same kind of measure twice ("1 cup (240mL)"): keep the metric one, it's exact.
+  if (household && metric && convertible(household.unit, metric.unit)) household = null;
+  return household ? result(household, metric) : result(metric, null);
 }
 
 export function parseNutritionLabel(rawText) {
