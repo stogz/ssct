@@ -87,9 +87,33 @@
         </div>
         <p class="muted small" id="goalHint"></p>
       </div>
+      <div class="card" id="accountCard" hidden>
+        <h2 class="card-title">Account &amp; backup</h2>
+        <p class="muted small" id="accountLoading">Loading…</p>
+        <form id="authForm" hidden>
+          <p class="muted small">Sign in to back up your foods, history and goals, and to use them on your other devices. Anything already on this device is added to your account.</p>
+          <label class="field">Email
+            <input name="email" type="email" autocomplete="username" inputmode="email" required>
+          </label>
+          <label class="field">Password
+            <input name="password" type="password" autocomplete="current-password" minlength="6" required>
+          </label>
+          <div class="row gap">
+            <button class="btn primary grow" name="action" value="signin">Sign in</button>
+            <button class="btn grow" name="action" value="signup">Create account</button>
+          </div>
+          <button type="button" class="link" id="forgotBtn">Forgot password?</button>
+          <p class="small auth-message" id="authMessage" role="status" hidden></p>
+        </form>
+        <div id="accountInfo" hidden>
+          <p class="account-email">Signed in as <b id="accountEmail"></b></p>
+          <p class="small sync-status" id="syncStatus" role="status"></p>
+          <button type="button" class="btn" id="signOutBtn">Sign out</button>
+        </div>
+      </div>
       <div class="card">
         <h2 class="card-title">Your data</h2>
-        <p class="muted small">Saved on this device only. Clearing this site's data in your browser, or deleting the app, erases it, so export a backup now and then.</p>
+        <p class="muted small" id="dataNote">Saved on this device only. Clearing this site's data in your browser, or deleting the app, erases it, so export a backup now and then.</p>
         <div class="row gap">
           <button class="btn grow" id="exportBtn">Export backup</button>
           <button class="btn grow" id="importBtn">Import backup</button>

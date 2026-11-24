@@ -1,4 +1,5 @@
-import { db, uid } from './db.js';
+import { db, uid, settings } from './db.js';
+import { firebaseConfig } from './firebase-config.js';
 import {
   UNITS, KIND_LABELS, SERVING, compatibleUnits, convertible, servingMeasures, unitLabel, formatAmount,
   nutritionFor, sumNutrition, dateKey, shiftDate,
@@ -18,18 +19,7 @@ const state = {
   foods: [],
 };
 
-// ---------- settings (tiny, so localStorage is fine) ----------
-const settings = {
-  get() {
-    try { return JSON.parse(localStorage.getItem('ssct-settings')) || {}; } catch { return {}; }
-  },
-  set(patch) {
-    const next = { ...settings.get(), ...patch };
-    try { localStorage.setItem('ssct-settings', JSON.stringify(next)); } catch { /* private mode */ }
-    return next;
-  },
-};
-
+// ---------- settings ----------
 const getGoals = () => normalizeGoals(settings.get());
 // Also drops the first version's goal/proteinGoal keys (JSON.stringify skips undefined).
 const saveGoals = (goals) => settings.set({ goals, goal: undefined, proteinGoal: undefined });
@@ -123,7 +113,85 @@ function render() {
   if (state.view === 'today') return renderDay();
   if (state.view === 'foods') return renderFoods();
   if (state.view === 'history') return renderHistory();
-  if (state.view === 'settings') return renderGoals();
+  if (state.view === 'settings') {
+    renderGoals();
+    renderAccount();
+  }
+}
+
+// ---------- account & cloud sync (only when Firebase is set up) ----------
+// `?emulator` on localhost uses the Firebase emulators, for testing.
+const useEmulator = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('emulator');
+let cloud = null; // { signIn, signUp, resetPassword, signOut } once js/sync.js has loaded
+let cloudState = { configured: Boolean(firebaseConfig || useEmulator), ready: false, user: null, status: 'signedOut', pending: 0, error: '' };
+
+let remoteRenderTimer = null;
+function renderSoon() {
+  clearTimeout(remoteRenderTimer);
+  remoteRenderTimer = setTimeout(render, 150);
+}
+
+let cloudStarting = false;
+async function startCloud() {
+  if (!cloudState.configured || cloudStarting) return;
+  cloudStarting = true;
+  const failed = (err, message) => {
+    console.error(err);
+    cloudState = { ...cloudState, ready: true, status: 'error', error: message };
+    renderAccount();
+  };
+  let syncModule;
+  try {
+    syncModule = await import('./sync.js');
+  } catch (err) {
+    cloudStarting = false; // e.g. first launch while offline: try again when back online
+    return failed(err, "Couldn't load sign-in. Check your connection.");
+  }
+  try {
+    cloud = syncModule.startSync({
+      emulator: useEmulator,
+      onState: (s) => {
+        cloudState = { ...cloudState, ...s };
+        renderAccount();
+      },
+      onRemoteChange: renderSoon,
+    });
+  } catch (err) {
+    failed(err, `Sync is set up wrong: ${err.message}`);
+  }
+}
+
+function syncStatusText(s) {
+  const changes = `${s.pending} change${s.pending === 1 ? '' : 's'}`;
+  if (s.status === 'synced') return '✓ Everything is backed up to your account.';
+  if (s.status === 'syncing') return s.pending ? `Backing up ${changes}…` : 'Syncing…';
+  if (s.status === 'offline') return `You're offline. ${changes} will back up when you're back online.`;
+  if (s.status === 'error') return `Couldn't back up: ${s.error} Trying again shortly.`;
+  return '';
+}
+
+function renderAccount() {
+  const s = cloudState;
+  $('#accountCard').hidden = !s.configured;
+  const signedIn = Boolean(s.user);
+  $('#accountLoading').hidden = !s.configured || s.ready;
+  $('#authForm').hidden = !s.ready || signedIn;
+  $('#accountInfo').hidden = !signedIn;
+  if (signedIn) {
+    $('#accountEmail').textContent = s.user.email;
+    $('#syncStatus').textContent = syncStatusText(s);
+    $('#syncStatus').dataset.status = s.status;
+  }
+  $('#dataNote').textContent = signedIn
+    ? 'Backed up to your account, so clearing this browser or losing your phone won\'t lose it. You can also export a copy.'
+    : `Saved on this device only${s.configured ? ' until you sign in' : ''}. Clearing this site's data in your browser, or deleting the app, erases it, so export a backup now and then.`;
+}
+
+function authMessage(text, isError = true) {
+  const el = $('#authMessage');
+  el.textContent = text;
+  el.classList.toggle('error', isError);
+  el.hidden = !text;
 }
 
 // ---------- today ----------
@@ -679,9 +747,53 @@ function wire() {
     });
   }
 
+  // Settings: account
+  $('#authForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!cloud) return authMessage("Sign-in isn't available right now. Check your connection.");
+    const form = e.target;
+    const signUp = e.submitter?.value === 'signup';
+    authMessage('');
+    form.classList.add('busy');
+    try {
+      if (signUp) await cloud.signUp(form.email.value.trim(), form.password.value);
+      else await cloud.signIn(form.email.value.trim(), form.password.value);
+      form.reset();
+      toast(signUp ? 'Account created' : 'Signed in');
+    } catch (err) {
+      authMessage(err.message);
+    } finally {
+      form.classList.remove('busy');
+    }
+  });
+  $('#forgotBtn').addEventListener('click', async () => {
+    const email = $('#authForm').email.value.trim();
+    if (!email) return authMessage('Enter your email above, then tap "Forgot password?" again.');
+    if (!cloud) return authMessage("Sign-in isn't available right now. Check your connection.");
+    try {
+      await cloud.resetPassword(email);
+      authMessage(`If there's an account for ${email}, a link to reset the password is on its way.`, false);
+    } catch (err) {
+      authMessage(err.message);
+    }
+  });
+  $('#signOutBtn').addEventListener('click', async () => {
+    const { pending } = cloudState;
+    const question = pending
+      ? `${pending} change${pending === 1 ? " hasn't" : "s haven't"} been backed up yet and will be lost. Sign out anyway?`
+      : "Sign out? Your data stays safe in your account. This device's copy is removed until you sign in again.";
+    if (!confirm(question)) return;
+    try {
+      await cloud.signOut();
+      toast('Signed out');
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+
   // Settings: backup
   $('#exportBtn').addEventListener('click', async () => {
-    const data = { ...(await db.exportAll()), settings: settings.get() };
+    const data = { ...(await db.exportAll()), settings: { goals: getGoals() } };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -699,7 +811,7 @@ function wire() {
       if (Array.isArray(data.foods)) data.foods.forEach((f) => { f.emoji = sanitizeEmoji(f.emoji); });
       if (Array.isArray(data.entries)) data.entries.forEach((x) => { x.emoji = sanitizeEmoji(x.emoji); });
       await db.importAll(data);
-      if (data.settings) settings.set(data.settings);
+      if (data.settings) saveGoals(normalizeGoals(data.settings));
       toast(`Imported ${data.foods.length} foods, ${data.entries.length} entries`);
       render();
     } catch (err) {
@@ -725,6 +837,9 @@ buildGoalModes();
 buildEmojiGrid();
 wire();
 showView('today');
+startCloud();
+// If sign-in couldn't load (e.g. first launch while offline), try again once back online.
+window.addEventListener('online', startCloud);
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

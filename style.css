@@ -133,6 +133,15 @@ main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 10px; }
 .field input[readonly] { background: transparent; border-style: dashed; }
 
+/* Account & backup */
+.account-email { margin: 0 0 6px; overflow-wrap: anywhere; }
+.sync-status { margin: 0 0 14px; color: var(--muted); }
+.sync-status[data-status="synced"] { color: var(--accent); }
+.sync-status[data-status="error"] { color: var(--danger); }
+.auth-message { margin: 10px 0 0; color: var(--muted); }
+.auth-message.error { color: var(--danger); }
+#authForm.busy button { opacity: .6; pointer-events: none; }
+
 .list { list-style: none; margin: 0; padding: 0; }
 .list li {
   display: flex; align-items: center; gap: 12px;
