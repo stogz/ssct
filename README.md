@@ -5,7 +5,7 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
 
 ## What it does
 
-- **Today**: the day's calories, protein, carbs and fat, with meters that fill up toward your daily goals (protein red, carbs purple, fat yellow), the foods you logged and that day's weigh-in. The arrows step through days.
+- **Today**: the day's calories, protein, carbs and fat, with meters that fill up toward your daily goals (protein red, carbs purple, fat yellow), plus sodium, sugar and fiber (blue, orange, green) if you turn them on in Settings. Below that: the foods you logged and that day's weigh-in. The arrows step through days.
 - **History**: the calendar button at the top right of Today swaps the day for your history: each day's calories and macros, a bar split into protein, carbs and fat (as long as your calorie goal when you've set one), and that day's weigh-in. Tap a day to open it, or tap the calendar again to go back to the day you were on.
 - **The + menu**: add a custom food, scan a nutrition label, log your weight, or pick one of your saved foods.
 - **Weight and body fat**: log your weight (lb or kg) and, if you know it, your body fat %. It's saved for the day you're viewing on Today (today when logged from Goals). Logging the same day again replaces it.
@@ -13,12 +13,11 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
   - a chart of your weigh-ins and their 7-day average (which smooths out day-to-day water weight), or of your body fat, over your goal, 1 month, 3 months or everything
   - a weight goal: pick a goal weight and a date to get a weekly and daily guide, the pace you need from today to finish on time, and whether you're on track, ahead or behind
   - about you: sex, age, height, activity level and units, used to estimate the calories you burn in a day
-  - daily nutrition: calories either **from my plan** (they follow your weight goal) or **set my own**, split into grams by a preset, or set the grams yourself:
-    - Balanced: 30% protein, 40% carbs, 30% fat
-    - High protein: 50% protein, 35% carbs, 15% fat
-    - Keto: 50% protein, 5% carbs, 45% fat
+  - daily nutrition: calories either **from my plan** (they follow your weight goal) or **set my own**, split into grams:
+    - Balanced: 30% protein, 50% carbs, 20% fat
     - Custom: enter grams and get the calories (protein and carbs 4 kcal/g, fat 9 kcal/g)
-- **My Foods**: your most-logged foods first (here and in the + menu), with the buttons and search pinned at the top. Save foods with calories, protein, carbs and fat per serving, a food emoji icon (only food and drink emojis are allowed), and a **default portion** that's filled in each time you log the food. Search matches the food's name or its icon ("apple" finds foods marked 🍎).
+  - sodium, sugar and fiber goals: sodium and sugar are limits to stay under (2,300 mg and 50 g to start, the US Daily Values), fiber a goal to reach (28 g to start)
+- **My Foods**: your most-logged foods first (here and in the + menu), with the buttons and search pinned at the top. Save foods with calories, protein, carbs, fat, sodium, sugar and fiber per serving, a food emoji icon (only food and drink emojis are allowed), and a **default portion** that's filled in each time you log the food. Search matches the food's name or its icon ("apple" finds foods marked 🍎).
 - **Portion calculator**: log in servings or in any unit that fits the food:
   - weight: g, oz, lb, kg
   - volume: tsp, tbsp, fl oz, cup, pint, quart, gallon, ml, L
@@ -26,8 +25,8 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
 
   Give a serving two measures (for example "2 tbsp = 32 g", as most labels print) to log it by both weight and volume.
 - **Custom foods**: add a one-off food, and optionally save it to My Foods.
-- **Scan a nutrition label**: take a photo and the app reads the serving size (both measures), calories, protein, carbs and fat for you to check. The text is read on your phone (Tesseract.js); the photo is never uploaded.
-- **Settings**: account and backup (see [Cloud backup and sync](#cloud-backup-and-sync-firebase)), appearance (Light by default, or Dark or Automatic, and a color: green by default, five other presets, or any custom color), and export/import of all your data as a JSON file. Appearance choices are saved per device.
+- **Scan a nutrition label**: take a photo and the app reads the serving size (both measures), calories, protein, carbs, fat, sodium (or salt on EU labels), total sugars and fiber for you to check. The text is read on your phone (Tesseract.js); the photo is never uploaded.
+- **Settings**: account and backup (see [Cloud backup and sync](#cloud-backup-and-sync-firebase)), which of sodium, sugar and fiber show on Today, appearance (Light by default, or Dark (true black) or Automatic, and a color: green by default, five other presets, or any custom color), and export/import of all your data as a JSON file. Appearance choices are saved per device.
 
 ## Custom colors
 

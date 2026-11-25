@@ -16,8 +16,11 @@ test('servings from grams and ounces', () => {
 });
 
 test('nutrition scales with portion', () => {
-  assert.deepEqual(nutritionFor(oats, 60, 'g'), { calories: 225, protein: 7.5, carbs: 40.5, fat: 4.5 });
-  assert.deepEqual(nutritionFor(oats, 2, 'serving'), { calories: 300, protein: 10, carbs: 54, fat: 6 });
+  const none = { fiber: 0, sugar: 0, sodium: 0 }; // oats was saved without them
+  assert.deepEqual(nutritionFor(oats, 60, 'g'), { calories: 225, protein: 7.5, carbs: 40.5, fat: 4.5, ...none });
+  assert.deepEqual(nutritionFor(oats, 2, 'serving'), { calories: 300, protein: 10, carbs: 54, fat: 6, ...none });
+  const cereal = { servingAmount: 55, servingUnit: 'g', calories: 230, protein: 3, carbs: 37, fat: 8, fiber: 4, sugar: 12, sodium: 160 };
+  assert.deepEqual(nutritionFor(cereal, 1.5, 'serving'), { calories: 345, protein: 4.5, carbs: 55.5, fat: 12, fiber: 6, sugar: 18, sodium: 240 });
 });
 
 test('volume conversion, including the new pint/quart units', () => {
@@ -73,8 +76,8 @@ test('labels and formatting', () => {
 });
 
 test('sum, dates and unit words', () => {
-  assert.deepEqual(sumNutrition([{ calories: 100, protein: 1.25, carbs: 2, fat: 0 }, { calories: 50, protein: 1.1, carbs: 0, fat: 3 }]),
-    { calories: 150, protein: 2.4, carbs: 2, fat: 3 });
+  assert.deepEqual(sumNutrition([{ calories: 100, protein: 1.25, carbs: 2, fat: 0, sodium: 120.4 }, { calories: 50, protein: 1.1, carbs: 0, fat: 3, fiber: 2.5 }]),
+    { calories: 150, protein: 2.4, carbs: 2, fat: 3, fiber: 2.5, sugar: 0, sodium: 120 });
   assert.equal(shiftDate('2026-03-01', -1), '2026-02-28');
   assert.equal(shiftDate('2026-12-31', 1), '2027-01-01');
   assert.equal(normalizeUnit('Tbsp.'), 'tbsp');

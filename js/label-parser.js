@@ -1,4 +1,5 @@
-// Turns raw OCR text from a nutrition label into { calories, protein, carbs, fat, servingAmount, servingUnit, servingAmount2, servingUnit2 }.
+// Turns raw OCR text from a nutrition label into { calories, protein, carbs, fat, fiber, sugar, sodium (mg),
+// servingAmount, servingUnit, servingAmount2, servingUnit2 }.
 // Every field may be null if it couldn't be found — the user always reviews the result before saving.
 import { normalizeUnit, convertible } from './units.js';
 
@@ -12,6 +13,7 @@ function cleanLine(line) {
     .replace(/(?<=\d)[lI|](?=\d|\s*g\b)/g, '1')
     .replace(/\b[lI|](?=\d)/g, '1')
     .replace(/(?<=\d),(?=\d{3}\b)/g, '') // 1,200 -> 1200
+    .replace(/(\d)\s*(?:m9|rng)\b/gi, '$1mg') // "160m9" / "160rng" -> "160mg"
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -114,6 +116,21 @@ function findServing(lines, text) {
   return household ? result(household, metric) : result(metric, null);
 }
 
+// Sodium in mg ("Sodium 160mg"). EU labels give salt in grams instead: sodium = salt × 400 mg per g.
+function findSodium(lines) {
+  for (const line of lines) {
+    const m = line.match(/sodium/i);
+    if (!m) continue;
+    const rest = line.slice(m.index + m[0].length);
+    const withUnit = rest.match(new RegExp(`${NUM}\\s*(mg|g)\\b`, 'i'));
+    if (withUnit) return Math.round(toNum(withUnit[1]) * (withUnit[2].toLowerCase() === 'g' ? 1000 : 1));
+    const bare = rest.match(new RegExp(`^\\s*[:\\-]?\\s*${NUM}(?!\\s*%)`));
+    if (bare) return Math.round(toNum(bare[1])); // labels give sodium in mg
+  }
+  const salt = gramsAfter(lines, /\bsalt\b/i);
+  return salt == null ? null : Math.round(salt * 400);
+}
+
 export function parseNutritionLabel(rawText) {
   const lines = String(rawText || '')
     .split(/\r?\n/)
@@ -126,6 +143,9 @@ export function parseNutritionLabel(rawText) {
     fat: gramsAfter(lines, /total\s*fat|^fat\b|\bfat\b(?!\s*cal)/i, /saturated|trans|sat\.|poly|mono|from\s*fat/i),
     carbs: gramsAfter(lines, /total\s*carb\w*\.?|carbohydrate\w*|carbs\b/i, /of\s*which/i),
     protein: gramsAfter(lines, /prote\w*/i),
+    fiber: gramsAfter(lines, /dietary\s*fib\w*|\bfib(?:er|re)s?\b/i, /soluble/i),
+    sugar: gramsAfter(lines, /total\s*sugars?|\bsugars?\b/i, /added|alcohol/i), // total sugars, not "Includes 10g Added Sugars"
+    sodium: findSodium(lines),
     ...findServing(lines, text),
   };
 }

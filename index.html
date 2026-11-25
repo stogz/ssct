@@ -61,6 +61,20 @@
             <div class="meter fat" id="meter-fat" role="progressbar" aria-label="Fat" aria-valuemin="0" hidden><div></div></div>
           </div>
         </div>
+        <div class="macros extras" id="extrasRow" hidden>
+          <div class="macro" id="extra-sodium" hidden>
+            <b id="sum-sodium">0mg</b><small>sodium</small>
+            <div class="meter sodium" id="meter-sodium" role="progressbar" aria-label="Sodium" aria-valuemin="0" hidden><div></div></div>
+          </div>
+          <div class="macro" id="extra-sugar" hidden>
+            <b id="sum-sugar">0g</b><small>sugar</small>
+            <div class="meter sugar" id="meter-sugar" role="progressbar" aria-label="Sugar" aria-valuemin="0" hidden><div></div></div>
+          </div>
+          <div class="macro" id="extra-fiber" hidden>
+            <b id="sum-fiber">0g</b><small>fiber</small>
+            <div class="meter fiber" id="meter-fiber" role="progressbar" aria-label="Fiber" aria-valuemin="0" hidden><div></div></div>
+          </div>
+        </div>
         <button type="button" class="link" id="setGoalsHint" hidden>Set your daily goals to track progress →</button>
       </div>
       <ul id="entryList" class="list"></ul>
@@ -156,6 +170,19 @@
           </label>
         </div>
         <p class="muted small" id="goalHint"></p>
+        <h3 class="subhead">Sodium, sugar and fiber</h3>
+        <div class="grid3">
+          <label class="field"><span class="dot sodium"></span>Sodium (mg)
+            <input type="number" id="goal-sodium" inputmode="numeric" min="0" step="any">
+          </label>
+          <label class="field"><span class="dot sugar"></span>Sugar (g)
+            <input type="number" id="goal-sugar" inputmode="numeric" min="0" step="any">
+          </label>
+          <label class="field"><span class="dot fiber"></span>Fiber (g)
+            <input type="number" id="goal-fiber" inputmode="numeric" min="0" step="any">
+          </label>
+        </div>
+        <p class="muted small">Sodium and sugar are limits to stay under; fiber is a goal to reach. <span id="extrasShownNote"></span></p>
       </div>
       <div class="card">
         <h2 class="card-title">About you</h2>
@@ -235,6 +262,13 @@
         </div>
       </div>
       <div class="card">
+        <h2 class="card-title">Dashboard</h2>
+        <p class="muted small">Show these on Today, under protein, carbs and fat.</p>
+        <label class="switch-row"><span><span class="dot sodium"></span>Sodium</span><input type="checkbox" class="switch" role="switch" data-extra-toggle="sodium"></label>
+        <label class="switch-row"><span><span class="dot sugar"></span>Sugar</span><input type="checkbox" class="switch" role="switch" data-extra-toggle="sugar"></label>
+        <label class="switch-row"><span><span class="dot fiber"></span>Fiber</span><input type="checkbox" class="switch" role="switch" data-extra-toggle="fiber"></label>
+      </div>
+      <div class="card">
         <h2 class="card-title">Appearance</h2>
         <div class="segmented" id="themeOptions" role="group" aria-label="Theme">
           <button type="button" data-theme-option="light">Light</button>
@@ -254,7 +288,7 @@
         </div>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
-      <p class="credits muted small">Version 6 · Icons by <a href="https://www.streamlinehq.com" target="_blank" rel="noopener">Streamline</a></p>
+      <p class="credits muted small">Version 7 · Icons by <a href="https://www.streamlinehq.com" target="_blank" rel="noopener">Streamline</a></p>
     </section>
   </main>
 
@@ -334,6 +368,17 @@
             <input name="fat" type="number" step="any" min="0" inputmode="decimal">
           </label>
         </div>
+        <div class="grid3">
+          <label class="field">Sodium (mg)
+            <input name="sodium" type="number" step="any" min="0" inputmode="decimal">
+          </label>
+          <label class="field">Sugar (g)
+            <input name="sugar" type="number" step="any" min="0" inputmode="decimal">
+          </label>
+          <label class="field">Fiber (g)
+            <input name="fiber" type="number" step="any" min="0" inputmode="decimal">
+          </label>
+        </div>
       </fieldset>
       <fieldset>
         <legend>Default portion when logging</legend>
@@ -377,6 +422,7 @@
         <div><b id="pvCarbs">0</b><small>carbs</small></div>
         <div><b id="pvFat">0</b><small>fat</small></div>
       </div>
+      <p class="muted small pv-extras" id="pvExtras" hidden></p>
       <div class="row gap">
         <button type="button" class="btn danger" id="deleteEntryBtn"><span class="icon icon-trash" aria-hidden="true"></span>Remove</button>
         <button type="submit" class="btn primary grow" id="portionSubmitBtn">Add</button>

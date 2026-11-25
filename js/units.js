@@ -86,28 +86,19 @@ export function toServings(amount, unit, food) {
 
 const round1 = (n) => Math.round(n * 10) / 10;
 
-// Nutrition for a portion of a food. food has calories, protein, carbs, fat per serving.
+// Per-serving nutrient fields on a food. Sodium is in mg, everything else in g (calories in kcal).
+const NUTRIENTS = ['calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium'];
+// Calories and sodium are whole numbers; grams keep one decimal.
+const roundFor = (key, n) => (key === 'calories' || key === 'sodium' ? Math.round(n) : round1(n));
+
+// Nutrition for a portion of a food. Foods saved before fiber/sugar/sodium existed count those as 0.
 export function nutritionFor(food, amount, unit) {
   const s = toServings(amount, unit, food);
-  return {
-    calories: Math.round((Number(food.calories) || 0) * s),
-    protein: round1((Number(food.protein) || 0) * s),
-    carbs: round1((Number(food.carbs) || 0) * s),
-    fat: round1((Number(food.fat) || 0) * s),
-  };
+  return Object.fromEntries(NUTRIENTS.map((k) => [k, roundFor(k, (Number(food[k]) || 0) * s)]));
 }
 
 export function sumNutrition(entries) {
-  const t = entries.reduce(
-    (a, e) => ({
-      calories: a.calories + (Number(e.calories) || 0),
-      protein: a.protein + (Number(e.protein) || 0),
-      carbs: a.carbs + (Number(e.carbs) || 0),
-      fat: a.fat + (Number(e.fat) || 0),
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
-  );
-  return { calories: Math.round(t.calories), protein: round1(t.protein), carbs: round1(t.carbs), fat: round1(t.fat) };
+  return Object.fromEntries(NUTRIENTS.map((k) => [k, roundFor(k, entries.reduce((sum, e) => sum + (Number(e[k]) || 0), 0))]));
 }
 
 // "0.6667 cup" reads better as "⅔ cup". Metric amounts stay as decimals.

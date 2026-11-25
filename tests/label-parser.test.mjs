@@ -22,7 +22,13 @@ Total Sugars 12g
 Protein 3g`;
   const r = parseNutritionLabel(text);
   assert.deepEqual([r.calories, r.fat, r.carbs, r.protein], [230, 8, 37, 3]);
+  assert.deepEqual([r.fiber, r.sugar, r.sodium], [4, 12, 160]);
   assert.deepEqual(serving(r), [0.667, 'cup', 55, 'g']);
+});
+
+test('total sugars, not added sugars; sodium misread as m9', () => {
+  const r = parseNutritionLabel('Calories 150\nSodium 480m9 21%\nTotal Carbohydrate 30g\nDietary Fiber 49 14%\nTotal Sugars 14g\nIncludes 10g Added Sugars 20%\nProtein 2g');
+  assert.deepEqual([r.sodium, r.fiber, r.sugar], [480, 4, 14]);
 });
 
 test('OCR noise: g read as 9, O for zero, calories on next line', () => {
@@ -55,8 +61,11 @@ Fat 9.5 g
 of which saturates 2.1 g
 Carbohydrate 30,2 g
 of which sugars 4 g
-Protein 11 g`);
+Fibre 3.1 g
+Protein 11 g
+Salt 1.2 g`);
   assert.deepEqual([r.calories, r.fat, r.carbs, r.protein], [250, 9.5, 30.2, 11]);
+  assert.deepEqual([r.sugar, r.fiber, r.sodium], [4, 3.1, 480]); // salt 1.2 g = 480 mg sodium
   assert.deepEqual(serving(r), [100, 'g', null, null]);
 });
 

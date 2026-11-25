@@ -41,9 +41,9 @@ export function ensureContrast(hex, bg, min, toward) {
 }
 
 // The page colors the accent has to work on (keep in sync with style.css).
-const LIGHT_BG = '#f6f7f5';
+const LIGHT_BG = '#f5f5f5';
 const LIGHT_CARD = '#ffffff';
-const DARK_CARD = '#1a201c';
+const DARK_CARD = '#1a1a1a';
 
 // Presets: the light-mode fill, a dark-mode fill, and (for green) the dark chart line tuned for charts.
 export const ACCENTS = [
