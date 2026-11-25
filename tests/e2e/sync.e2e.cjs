@@ -256,7 +256,9 @@ async function adminList(path) {
   const cFoods = await adminList(`users/${uidC}/foods`);
   check(cFoods.length === 1 && cFoods[0].fields.name.stringValue === 'Old toast', 'v1 data uploaded on first sign-in');
   await C.page.click('.tabs [data-view=goals]');
-  check(await C.page.inputValue('#goalCalories') === '1800', 'old calorie goal carried over (1800)');
+  const oldGoal = await C.page.waitForFunction(() => document.querySelector('#goalCalories').value === '1800', null, { timeout: 10000 })
+    .then(() => true).catch(() => false);
+  check(oldGoal, 'old calorie goal carried over (1800)');
 
   const errors = [...A.page.errors, ...B.page.errors, ...C.page.errors];
   check(errors.length === 0, `no page errors ${errors.length ? JSON.stringify(errors) : ''}`);

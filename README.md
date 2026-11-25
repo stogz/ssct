@@ -6,9 +6,9 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
 ## What it does
 
 - **Today**: the day's calories, protein, carbs and fat, with meters that fill up toward your daily goals (protein red, carbs purple, fat yellow), the foods you logged and that day's weigh-in. The arrows step through days.
-- **History**: the calendar button at the top right of Today swaps the day for your history: daily totals, weigh-ins, and 7- and 30-day averages. Tap a day to open it, or tap the calendar again to go back to the day you were on.
+- **History**: the calendar button at the top right of Today swaps the day for your history: each day's calories and macros, a bar split into protein, carbs and fat (as long as your calorie goal when you've set one), and that day's weigh-in. Tap a day to open it, or tap the calendar again to go back to the day you were on.
 - **The + menu**: add a custom food, scan a nutrition label, log your weight, or pick one of your saved foods.
-- **Weight and body fat**: log your weight (lb or kg) and, if you know it, your body fat % for any day. Logging the same day again replaces it.
+- **Weight and body fat**: log your weight (lb or kg) and, if you know it, your body fat %. It's saved for the day you're viewing on Today (today when logged from Goals). Logging the same day again replaces it.
 - **Goals**:
   - a chart of your weigh-ins and their 7-day average (which smooths out day-to-day water weight), or of your body fat, over your goal, 1 month, 3 months or everything
   - a weight goal: pick a goal weight and a date to get a weekly and daily guide, the pace you need from today to finish on time, and whether you're on track, ahead or behind
@@ -18,7 +18,7 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
     - High protein: 50% protein, 35% carbs, 15% fat
     - Keto: 50% protein, 5% carbs, 45% fat
     - Custom: enter grams and get the calories (protein and carbs 4 kcal/g, fat 9 kcal/g)
-- **My Foods**: save foods with calories, protein, carbs and fat per serving, a food emoji icon (only food and drink emojis are allowed), and a **default portion** that's filled in each time you log the food. Search matches the food's name or its icon ("apple" finds foods marked 🍎).
+- **My Foods**: your most-logged foods first (here and in the + menu), with the buttons and search pinned at the top. Save foods with calories, protein, carbs and fat per serving, a food emoji icon (only food and drink emojis are allowed), and a **default portion** that's filled in each time you log the food. Search matches the food's name or its icon ("apple" finds foods marked 🍎).
 - **Portion calculator**: log in servings or in any unit that fits the food:
   - weight: g, oz, lb, kg
   - volume: tsp, tbsp, fl oz, cup, pint, quart, gallon, ml, L
@@ -27,7 +27,11 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
   Give a serving two measures (for example "2 tbsp = 32 g", as most labels print) to log it by both weight and volume.
 - **Custom foods**: add a one-off food, and optionally save it to My Foods.
 - **Scan a nutrition label**: take a photo and the app reads the serving size (both measures), calories, protein, carbs and fat for you to check. The text is read on your phone (Tesseract.js); the photo is never uploaded.
-- **Settings**: account and backup (see [Cloud backup and sync](#cloud-backup-and-sync-firebase)), Light/Dark/Automatic appearance, and export/import of all your data as a JSON file.
+- **Settings**: account and backup (see [Cloud backup and sync](#cloud-backup-and-sync-firebase)), appearance (Light by default, or Dark or Automatic, and a color: green by default, five other presets, or any custom color), and export/import of all your data as a JSON file. Appearance choices are saved per device.
+
+## Custom colors
+
+Pick a color in Settings > Appearance and the app works out the rest in [`js/colors.js`](js/colors.js): text on buttons is white, or a very dark shade of the color when white wouldn't read; links, icons and the active tab use a shade with at least 4.5:1 contrast on the page; the chart line gets at least 3:1; and dark mode gets its own lighter shade. So even a pale yellow stays readable.
 
 ## How the plan works
 
@@ -118,7 +122,7 @@ npm start
 npm test
 ```
 
-Unit tests for unit conversions, portion math, goal presets, the weight-goal and calorie math, the food-emoji list and the nutrition-label parser (including common OCR mistakes, such as "8g" being read as "89"). For sync, see [Testing sync](#testing-sync).
+Unit tests for unit conversions, portion math, goal presets, the weight-goal and calorie math, accent color contrast, the food-emoji list and the nutrition-label parser (including common OCR mistakes, such as "8g" being read as "89"). For sync, see [Testing sync](#testing-sync).
 
 ## Files
 
@@ -133,6 +137,7 @@ js/vendor/firebase.js       Firebase SDK, bundled by `npm run vendor` from scrip
 js/units.js                 unit conversion + portion math
 js/goals.js                 daily nutrition presets + macro/calorie math
 js/plan.js                  weight goals, calories burned, calorie targets
+js/colors.js                accent colors: contrast math and readable variants
 js/food-emojis.js           the allowed food emoji icons
 js/label-parser.js          OCR text → nutrition values
 js/scanner.js               camera photo → OCR (Tesseract.js)

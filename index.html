@@ -11,8 +11,22 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <script>
-    // Apply the saved Light/Dark choice before the page draws, so it never flashes the wrong theme.
-    try { var t = localStorage.getItem('ssct-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    // Apply the saved appearance before the page draws, so it never flashes the wrong theme or color.
+    // Theme: Light unless Dark or Automatic was picked. Accent: green unless another color was picked.
+    (function () {
+      var root = document.documentElement;
+      try {
+        var t = localStorage.getItem('ssct-theme');
+        if (t !== 'auto') root.dataset.theme = t === 'dark' ? 'dark' : 'light';
+        var a = JSON.parse(localStorage.getItem('ssct-accent') || 'null');
+        if (a && a.vars) {
+          for (var k in a.vars) {
+            if (/^[a-z-]+$/.test(k) && /^#[0-9a-f]{6}$/i.test(a.vars[k])) root.style.setProperty('--' + k, a.vars[k]);
+          }
+          if (/^#[0-9a-f]{6}$/i.test(a.vars['accent-l'])) document.querySelector('meta[name=theme-color]').content = a.vars['accent-l'];
+        }
+      } catch (e) { root.dataset.theme = 'light'; }
+    })();
   </script>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -55,18 +69,19 @@
 
     <!-- FOODS -->
     <section id="view-foods" class="view" hidden>
-      <div class="row gap">
-        <button class="btn primary grow" id="newFoodBtn">+ New food</button>
-        <button class="btn" id="scanFoodBtn"><span class="icon icon-camera" aria-hidden="true"></span>Scan label</button>
+      <div class="sticky-tools">
+        <div class="row gap">
+          <button class="btn primary grow" id="newFoodBtn">+ New food</button>
+          <button class="btn" id="scanFoodBtn"><span class="icon icon-camera" aria-hidden="true"></span>Scan label</button>
+        </div>
+        <input type="search" id="foodSearch" class="search" placeholder="Search my foods">
       </div>
-      <input type="search" id="foodSearch" class="search" placeholder="Search my foods">
       <ul id="foodList" class="list"></ul>
       <p id="emptyFoods" class="empty">No saved foods yet. Add one or scan a label.</p>
     </section>
 
     <!-- HISTORY -->
     <section id="view-history" class="view" hidden>
-      <div class="card" id="averages"></div>
       <ul id="historyList" class="list"></ul>
       <p id="emptyHistory" class="empty">No history yet.</p>
     </section>
@@ -226,7 +241,9 @@
           <button type="button" data-theme-option="dark">Dark</button>
           <button type="button" data-theme-option="auto">Automatic</button>
         </div>
-        <p class="muted small">Automatic follows your phone's light or dark setting. This choice is saved on this device only.</p>
+        <p class="swatch-label">Color</p>
+        <div class="swatches" id="accentSwatches" role="group" aria-label="Color"></div>
+        <p class="muted small">Automatic follows your phone's light or dark setting. Your choices are saved on this device only.</p>
       </div>
       <div class="card">
         <h2 class="card-title">Your data</h2>
@@ -237,7 +254,7 @@
         </div>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
-      <p class="credits muted small">Version 5 · Icons by <a href="https://www.streamlinehq.com" target="_blank" rel="noopener">Streamline</a></p>
+      <p class="credits muted small">Version 6 · Icons by <a href="https://www.streamlinehq.com" target="_blank" rel="noopener">Streamline</a></p>
     </section>
   </main>
 
@@ -254,7 +271,7 @@
   <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
 
   <!-- ADD SHEET: pick a saved food, quick add, or scan -->
-  <dialog id="addDialog" class="sheet">
+  <dialog id="addDialog" class="sheet" tabindex="-1">
     <div class="sheet-head">
       <h2>Add</h2>
       <button class="x" data-close>✕</button>
@@ -270,7 +287,7 @@
   </dialog>
 
   <!-- FOOD EDITOR -->
-  <dialog id="foodDialog" class="sheet">
+  <dialog id="foodDialog" class="sheet" tabindex="-1">
     <form id="foodForm" method="dialog">
       <div class="sheet-head">
         <h2 id="foodDialogTitle">New food</h2>
@@ -338,7 +355,7 @@
   </dialog>
 
   <!-- PORTION CALCULATOR -->
-  <dialog id="portionDialog" class="sheet">
+  <dialog id="portionDialog" class="sheet" tabindex="-1">
     <form id="portionForm" method="dialog">
       <div class="sheet-head">
         <h2 id="portionTitle">Food</h2>
@@ -368,15 +385,15 @@
   </dialog>
 
   <!-- LOG WEIGHT -->
-  <dialog id="weightDialog" class="sheet">
+  <dialog id="weightDialog" class="sheet" tabindex="-1">
     <form id="weightForm" method="dialog" novalidate>
       <div class="sheet-head">
-        <h2 id="weightDialogTitle">Log weight</h2>
+        <div>
+          <h2 id="weightDialogTitle">Log weight</h2>
+          <p class="muted small sheet-date" id="weightDate"></p>
+        </div>
         <button type="button" class="x" data-close>✕</button>
       </div>
-      <label class="field">Date
-        <input name="date" type="date">
-      </label>
       <div class="grid2">
         <label class="field">Weight
           <input name="weight" type="number" step="any" min="1" inputmode="decimal">
