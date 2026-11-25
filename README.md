@@ -16,7 +16,7 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
   - daily nutrition: calories either **from my plan** (they follow your weight goal) or **set my own**, split into grams:
     - Balanced: 30% protein, 50% carbs, 20% fat
     - Custom: enter grams and get the calories (protein and carbs 4 kcal/g, fat 9 kcal/g)
-  - sodium, sugar and fiber goals: sodium and sugar are limits to stay under (2,300 mg and 50 g to start, the US Daily Values), fiber a goal to reach (28 g to start)
+  - sodium, sugar and fiber goals: worked out for you unless you type your own (leave a box blank to use the worked-out amount). Fiber is a goal of 14 g per 1,000 kcal and sugar a limit of 10% of calories, both from your plan's daily calories (your height, weight, age, sex and activity). Sodium is a limit of 2,300 mg, which health guidelines set by age (everyone 14 and older), not body size
 - **My Foods**: your most-logged foods first (here and in the + menu), with the buttons and search pinned at the top. Save foods with calories, protein, carbs, fat, sodium, sugar and fiber per serving, a food emoji icon (only food and drink emojis are allowed), and a **default portion** that's filled in each time you log the food. Search matches the food's name or its icon ("apple" finds foods marked 🍎).
 - **Portion calculator**: log in servings or in any unit that fits the food:
   - weight: g, oz, lb, kg

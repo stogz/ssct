@@ -30,14 +30,23 @@ test('stored goals, including the first version format', () => {
   assert.equal(normalizeGoals({ goals: { mode: 'custom', protein: 100, carbs: 100, fat: 50 } }).calories, 1250);
 });
 
-test('fiber, sugar and sodium settings', () => {
+test('sodium, sugar and fiber settings', () => {
   assert.deepEqual(EXTRAS.map((x) => x.key), ['sodium', 'sugar', 'fiber']);
-  assert.deepEqual(normalizeExtras({}), {
-    sodium: { show: false, goal: 2300 }, sugar: { show: false, goal: 50 }, fiber: { show: false, goal: 28 },
-  });
-  const set = normalizeExtras({ extras: { fiber: { show: true, goal: 35 }, sodium: { show: true, goal: '1500' } } });
-  assert.deepEqual(set.fiber, { show: true, goal: 35 });
-  assert.deepEqual(set.sodium, { show: true, goal: 1500 });
-  assert.deepEqual(set.sugar, { show: false, goal: 50 });
-  assert.equal(normalizeExtras({ extras: { sugar: { goal: -3 } } }).sugar.goal, 50); // nonsense falls back
+  const none = { show: false, target: null };
+  assert.deepEqual(normalizeExtras({}), { sodium: none, sugar: none, fiber: none });
+  const set = normalizeExtras({ extras: { fiber: { show: true, target: 35 }, sodium: { show: true, target: '1500' }, sugar: { target: '' } } });
+  assert.deepEqual(set.fiber, { show: true, target: 35 });
+  assert.deepEqual(set.sodium, { show: true, target: 1500 });
+  assert.deepEqual(set.sugar, none); // blank = use the suggested amount
+  assert.equal(normalizeExtras({ extras: { sugar: { target: -3 } } }).sugar.target, null);
+});
+
+test('goals saved by the previous version', () => {
+  // flipping a switch used to save the old defaults: those become "use the suggested amount"
+  const old = normalizeExtras({ extras: { sodium: { show: true, goal: 2300 }, sugar: { show: false, goal: 50 }, fiber: { show: true, goal: 35 } } });
+  assert.deepEqual(old.sodium, { show: true, target: null });
+  assert.deepEqual(old.sugar, { show: false, target: null });
+  assert.deepEqual(old.fiber, { show: true, target: 35 }); // a number someone actually typed is kept
+  // once saved in the new format, a cleared goal stays cleared
+  assert.equal(normalizeExtras({ extras: { fiber: { show: true, goal: 35, target: null } } }).fiber.target, null);
 });

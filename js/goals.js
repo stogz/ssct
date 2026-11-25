@@ -51,21 +51,29 @@ export function normalizeGoals(settings) {
 }
 
 // Extra nutrients that can be shown on Today. Fiber is a target to reach; sugar and sodium are limits.
-// Default goals: fiber 28 g (14 g per 1,000 kcal on 2,000 kcal), sugar 50 g and sodium 2,300 mg
-// (the US Daily Values for added sugars and sodium).
 // Ordered so that on Today each sits under a macro of a clearly different color.
+// Their goals are worked out for each person (suggestedExtras in plan.js) unless a number is typed in.
 export const EXTRAS = [
-  { key: 'sodium', label: 'Sodium', unit: 'mg', kind: 'limit', defaultGoal: 2300 },
-  { key: 'sugar', label: 'Sugar', unit: 'g', kind: 'limit', defaultGoal: 50 },
-  { key: 'fiber', label: 'Fiber', unit: 'g', kind: 'target', defaultGoal: 28 },
+  { key: 'sodium', label: 'Sodium', unit: 'mg', kind: 'limit' },
+  { key: 'sugar', label: 'Sugar', unit: 'g', kind: 'limit' },
+  { key: 'fiber', label: 'Fiber', unit: 'g', kind: 'target' },
 ];
 
-// { fiber: { show, goal }, sugar: {...}, sodium: {...} } from stored settings, with defaults (hidden).
+// The previous version saved these as goals whenever a switch was flipped, so they aren't real choices.
+const OLD_DEFAULT_GOALS = { sodium: 2300, sugar: 50, fiber: 28 };
+const amount = (v) => (v === '' || v == null || !(Number(v) >= 0) ? null : Number(v));
+
+// { sodium: { show, target }, ... }: whether each shows on Today, and the goal you typed (null = use the
+// amount suggested for you).
 export function normalizeExtras(settings) {
   const stored = settings?.extras || {};
   return Object.fromEntries(EXTRAS.map((x) => {
     const v = stored[x.key] || {};
-    const goal = Number(v.goal);
-    return [x.key, { show: Boolean(v.show), goal: goal >= 0 && v.goal !== '' && v.goal != null ? goal : x.defaultGoal }];
+    let target = amount(v.target);
+    if (v.target === undefined) {
+      const old = amount(v.goal); // older format
+      if (old != null && old !== OLD_DEFAULT_GOALS[x.key]) target = old;
+    }
+    return [x.key, { show: Boolean(v.show), target }];
   }));
 }

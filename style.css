@@ -288,6 +288,10 @@ dialog.sheet {
 @media (min-width: 700px) { dialog.sheet { margin: auto; border-radius: 20px; } }
 dialog::backdrop { background: rgba(0,0,0,.45); }
 dialog.sheet:focus { outline: none; }
+/* While a sheet is open only the sheet scrolls: the page behind is locked, and reaching the end of the
+   sheet (or its list) doesn't carry on into the page. */
+html.sheet-open, html.sheet-open body { overflow: hidden; }
+dialog.sheet, dialog.sheet .list { overscroll-behavior: contain; }
 /* Same height however many foods match, so searching never pulls it down behind the keyboard. */
 #addDialog[open] { display: flex; flex-direction: column; height: 85vh; height: 85dvh; overflow: hidden; }
 #addDialog .list.compact { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; }

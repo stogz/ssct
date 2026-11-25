@@ -7,7 +7,7 @@ import {
 import { PRESETS, MACROS, EXTRAS, goalsFromCalories, customGoals, macroSplit, normalizeGoals, normalizeExtras } from './goals.js';
 import {
   ACTIVITY, kgToLb, lbToKg, cmFromFeetInches, feetInchesFromCm, daysBetween, addDays,
-  trendAt, maintenance, goalProgress, calorieTarget,
+  trendAt, maintenance, goalProgress, calorieTarget, suggestedExtras,
 } from './plan.js';
 import { FOOD_EMOJI_GROUPS, sanitizeEmoji, emojiName } from './food-emojis.js';
 import { ACCENTS, ACCENT_VARS, accentVars, parseHex } from './colors.js';
@@ -34,7 +34,8 @@ const state = {
 // Also drops the first version's goal/proteinGoal keys (JSON.stringify skips undefined).
 const saveGoals = (goals) => settings.set({ goals, goal: undefined, proteinGoal: undefined });
 const getProfile = () => settings.get().profile || {};
-// Sodium, sugar and fiber: whether each shows on Today, and its goal. Synced with the other goals.
+// Sodium, sugar and fiber: whether each shows on Today, and the goal you typed (null = the suggested amount).
+// Synced with the other goals.
 const getExtras = () => normalizeExtras(settings.get());
 const saveExtra = (key, patch) => {
   const extras = getExtras();
@@ -78,6 +79,22 @@ function currentPlan() {
   // Aim for the pace that still finishes on time, so being behind or ahead adjusts the calories.
   const target = maint ? calorieTarget(maint.calories, goalActive ? goal.neededPerDay * 7 : 0, trend.kg, profile.sex) : null;
   return { today, profile, trend, maint, weightGoal: s.weightGoal || null, goal, goalActive, target };
+}
+
+// Sodium, sugar and fiber worked out for you: from your plan's calories (height, weight, age, sex and activity),
+// or your daily calorie goal until About you is filled in. `basis` says which, for the explanation.
+function extraSuggestions(plan = currentPlan()) {
+  const goalCalories = getGoals().calories;
+  const calories = plan.target?.calories || goalCalories || null;
+  const basis = plan.target ? 'plan' : goalCalories ? 'goal' : 'none';
+  return { values: suggestedExtras({ calories, age: plan.profile.age, sex: plan.profile.sex }), calories, basis };
+}
+
+// The goal each extra is measured against: what you typed, or the suggested amount.
+function extraGoals() {
+  const extras = getExtras();
+  const suggested = extraSuggestions().values;
+  return Object.fromEntries(EXTRAS.map((x) => [x.key, extras[x.key].target ?? suggested[x.key]]));
 }
 
 // Daily nutrition goals. "From my plan" makes the calories follow the plan; the preset splits them into grams.
@@ -372,6 +389,7 @@ async function renderDay() {
     setMeter($(`#meter-${m}`), total[m], goals[m]);
   }
   const extras = getExtras();
+  const extraGoal = extraGoals();
   const shown = EXTRAS.filter((x) => extras[x.key].show);
   $('#extrasRow').hidden = shown.length === 0;
   for (const x of EXTRAS) {
@@ -379,7 +397,7 @@ async function renderDay() {
     $(`#extra-${x.key}`).hidden = !on;
     if (!on) continue;
     $(`#sum-${x.key}`).textContent = extraText(x.key, total[x.key]);
-    setMeter($(`#meter-${x.key}`), total[x.key], extras[x.key].goal);
+    setMeter($(`#meter-${x.key}`), total[x.key], extraGoal[x.key]);
   }
   $('#setGoalsHint').hidden = goals.calories > 0;
 
@@ -502,21 +520,35 @@ async function renderGoalsPage() {
   renderProgress(plan);
   renderWeightGoal(plan);
   renderGoals();
-  renderExtraGoals();
   renderProfile(plan);
   renderWeighIns();
 }
 
 function renderExtraGoals() {
   const extras = getExtras();
+  const suggestion = extraSuggestions();
   for (const x of EXTRAS) {
     const input = $(`#goal-${x.key}`);
-    if (input !== document.activeElement) input.value = extras[x.key].goal;
+    input.placeholder = String(suggestion.values[x.key]);
+    if (input !== document.activeElement) input.value = extras[x.key].target ?? '';
   }
+  $('#extrasBasis').textContent = extrasBasisText(suggestion);
   const shown = EXTRAS.filter((x) => extras[x.key].show).map((x) => x.label.toLowerCase());
   $('#extrasShownNote').textContent = shown.length
     ? `Showing ${listText(shown)} on Today.`
     : 'Turn them on in Settings to see them on Today.';
+}
+
+// How the suggested amounts were worked out.
+function extrasBasisText({ values, calories, basis }) {
+  const sodium = `Sodium stays under ${kcal(values.sodium)} mg: health guidelines use one limit for everyone 14 and older, whatever their size.`;
+  if (basis === 'none') {
+    return `Leave a box blank to use a suggested amount. Fill in About you and log your weight to base fiber and sugar on your height, weight and age. ${sodium}`;
+  }
+  const from = basis === 'plan'
+    ? `your ${kcal(calories)} kcal plan (your height, weight, age, sex and activity)`
+    : `your ${kcal(calories)} kcal daily goal (fill in About you to base it on your height, weight and age)`;
+  return `Leave a box blank to use the amount worked out for you from ${from}: fiber is 14 g per 1,000 kcal and sugar under 10% of calories. ${sodium}`;
 }
 
 function renderDashboardSwitches() {
@@ -940,13 +972,21 @@ function renderGoals(typing) {
   $('#goalHint').textContent = custom
     ? `Calories are worked out from your grams: protein and carbs are 4 kcal per gram, fat is 9.${split ? ` That's ${split.protein}% protein, ${split.carbs}% carbs and ${split.fat}% fat.` : ''}`
     : following ? 'The grams are worked out from your plan\'s calories.' : 'Enter your daily calories and the grams are worked out for you.';
+  renderExtraGoals(); // the suggested sodium, sugar and fiber follow your calories
 }
 
 // ---------- sheets ----------
-// Focus the sheet itself on open (not its first button), so the close button doesn't show a focus ring.
+// While a sheet is open the page behind it is locked, so only the sheet scrolls (see .sheet-open in style.css).
+// The sheet focuses itself (not its first button), so the close button doesn't show a focus ring.
 function openSheet(dialog) {
   dialog.showModal();
+  document.documentElement.classList.add('sheet-open');
   dialog.focus({ preventScroll: true });
+}
+
+// Unlock once the last sheet has closed (one sheet often opens another, e.g. Add → portion).
+function sheetClosed() {
+  if (!document.querySelector('dialog[open]')) document.documentElement.classList.remove('sheet-open');
 }
 
 // ---------- add sheet ----------
@@ -1281,6 +1321,7 @@ function wire() {
   // Tap the backdrop to close a sheet.
   for (const d of document.querySelectorAll('dialog')) {
     d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+    d.addEventListener('close', sheetClosed);
   }
 
   $('#prevDay').addEventListener('click', () => { state.date = shiftDate(state.date, -1); render(); });
@@ -1443,10 +1484,10 @@ function wire() {
   // Goals page: sodium / sugar / fiber goals
   for (const x of EXTRAS) {
     $(`#goal-${x.key}`).addEventListener('input', (e) => {
-      if (e.target.value === '' || Number(e.target.value) < 0) return;
-      saveExtra(x.key, { goal: Number(e.target.value) });
+      const v = e.target.value;
+      if (v !== '' && !(Number(v) >= 0)) return;
+      saveExtra(x.key, { target: v === '' ? null : Number(v) }); // blank = use the suggested amount
     });
-    $(`#goal-${x.key}`).addEventListener('change', renderExtraGoals); // an emptied field shows the goal again
   }
 
   // Goals page: where calories come from
