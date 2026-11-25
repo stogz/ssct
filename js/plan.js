@@ -107,3 +107,21 @@ export function calorieTarget(maintenanceKcal, perWeekKg, weightKg, sex) {
     minimum,
   };
 }
+
+// Daily sodium, sugar and fiber amounts suggested for you.
+//  - Fiber: at least 14 g per 1,000 kcal eaten (US National Academies; the basis of the 25–38 g adult targets).
+//  - Sugar: under 10% of calories (WHO and US Dietary Guidelines advice on sugars), at 4 kcal per gram.
+//  - Sodium: under 2,300 mg from age 14 (1,800 mg at 9–13), the limit for lowering long-term health risks.
+//    It's set by age only: guidelines don't scale it with body size.
+// `calories` is your daily calorie target (from your plan: height, weight, age, sex and activity). Without it,
+// fiber falls back to the Adequate Intake for your age and sex, and sugar to 50 g (10% of 2,000 kcal).
+export function suggestedExtras({ calories, age, sex } = {}) {
+  const sodium = age > 0 && age < 14 ? 1800 : 2300;
+  if (calories > 0) {
+    return { sodium, sugar: Math.round((calories * 0.1) / 4), fiber: Math.round((calories * 14) / 1000) };
+  }
+  let fiber = 28;
+  if (sex === 'male') fiber = age >= 51 ? 30 : 38;
+  else if (sex === 'female') fiber = age >= 51 ? 21 : 25;
+  return { sodium, sugar: 50, fiber };
+}

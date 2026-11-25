@@ -190,6 +190,17 @@ async function adminList(path) {
   const profileOnB = await B.page.waitForFunction((d) => document.querySelector('#profileForm [name=age]').value === '35'
     && document.querySelector('#weightGoalForm [name=date]').value === d, laterKey, { timeout: 20000 }).then(() => true).catch(() => false);
   check(profileOnB, "A's profile and weight goal reached B");
+  // sodium / sugar / fiber: switch and goal
+  await A.page.fill('#goal-fiber', '33');
+  await A.page.click('.tabs [data-view=settings]');
+  await A.page.click('label:has([data-extra-toggle=fiber])');
+  await B.page.click('.tabs [data-view=settings]');
+  const extrasOnB = await B.page.waitForFunction(() => document.querySelector('[data-extra-toggle=fiber]').checked, null, { timeout: 20000 })
+    .then(() => true).catch(() => false);
+  await B.page.click('.tabs [data-view=goals]');
+  const fiberGoalOnB = await B.page.waitForFunction(() => document.querySelector('#goal-fiber').value === '33', null, { timeout: 20000 })
+    .then(() => true).catch(() => false);
+  check(extrasOnB && fiberGoalOnB, "A's fiber switch and goal reached B");
 
   // ---------- Security rules: another user can't read A's data ----------
   const signUp = await (await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-key`, {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  restingCalories, maintenance, trendAt, goalProgress, calorieTarget, daysBetween, addDays,
+  restingCalories, maintenance, trendAt, goalProgress, calorieTarget, daysBetween, addDays, suggestedExtras,
   kgToLb, lbToKg, cmFromFeetInches, feetInchesFromCm,
 } from '../js/plan.js';
 
@@ -82,4 +82,18 @@ test('dates and units', () => {
   close(cmFromFeetInches(5, 10), 177.8);
   assert.deepEqual(feetInchesFromCm(177.8), { ft: 5, inches: 10 });
   assert.deepEqual(feetInchesFromCm(182.88), { ft: 6, inches: 0 });
+});
+
+test('suggested sodium, sugar and fiber', () => {
+  // from the plan's calories
+  assert.deepEqual(suggestedExtras({ calories: 2000, age: 35, sex: 'male' }), { sodium: 2300, sugar: 50, fiber: 28 });
+  assert.deepEqual(suggestedExtras({ calories: 2600, age: 35, sex: 'male' }), { sodium: 2300, sugar: 65, fiber: 36 });
+  assert.deepEqual(suggestedExtras({ calories: 1600, age: 60, sex: 'female' }), { sodium: 2300, sugar: 40, fiber: 22 });
+  // sodium only changes by age
+  assert.equal(suggestedExtras({ calories: 2200, age: 13 }).sodium, 1800);
+  assert.equal(suggestedExtras({ calories: 1400, age: 80 }).sodium, 2300);
+  // no calories yet: fiber by age and sex, sugar 50 g
+  assert.deepEqual(suggestedExtras({ age: 30, sex: 'male' }), { sodium: 2300, sugar: 50, fiber: 38 });
+  assert.deepEqual(suggestedExtras({ age: 55, sex: 'female' }), { sodium: 2300, sugar: 50, fiber: 21 });
+  assert.deepEqual(suggestedExtras({}), { sodium: 2300, sugar: 50, fiber: 28 });
 });

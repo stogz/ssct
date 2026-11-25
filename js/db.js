@@ -179,7 +179,7 @@ export const db = {
 // Small, so it lives in localStorage. Like records, it has updatedAt/dirty for sync.
 const SETTINGS_KEY = 'ssct-settings';
 // The parts that sync to the account (as one document; the newest wins).
-export const SYNCED_SETTINGS = ['goals', 'profile', 'weightGoal'];
+export const SYNCED_SETTINGS = ['goals', 'profile', 'weightGoal', 'extras'];
 
 function writeSettings(s) {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* private mode */ }
