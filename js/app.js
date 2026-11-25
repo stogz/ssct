@@ -7,7 +7,8 @@ import {
 import { PRESETS, MACROS, EXTRAS, goalsFromCalories, customGoals, macroSplit, normalizeGoals, normalizeExtras } from './goals.js';
 import {
   ACTIVITY, kgToLb, lbToKg, cmFromFeetInches, feetInchesFromCm, daysBetween, addDays,
-  trendAt, maintenance, goalProgress, calorieTarget, suggestedExtras,
+  trendAt, bodyFatAt, maintenance, normalizeGoal, goalRecord, goalStart, goalProgress, weightTolerance,
+  BODY_FAT_TOLERANCE, weightAtBodyFat, calorieTarget, suggestedExtras,
 } from './plan.js';
 import { FOOD_EMOJI_GROUPS, sanitizeEmoji, emojiName } from './food-emojis.js';
 import { ACCENTS, ACCENT_VARS, accentVars, parseHex } from './colors.js';
@@ -26,8 +27,8 @@ const state = {
   foods: [],
   weights: [], // oldest first
   chartRange: null, // 'goal' | '30' | '90' | 'all'; null picks a sensible default
-  chartMetric: 'weight', // or 'bodyFat'
-  showAllWeighIns: false,
+  chartMetric: null, // 'weight' | 'bodyFat'; null follows your goal
+  goalMetric: null, // the kind of goal the goal form shows; null follows your goal
 };
 
 // ---------- settings ----------
@@ -56,29 +57,56 @@ const weightUnit = () => (imperial() ? 'lb' : 'kg');
 const toWeightUnit = (kg) => (imperial() ? kgToLb(kg) : kg);
 const fromWeightUnit = (v) => (imperial() ? lbToKg(v) : v);
 const weightText = (kg) => `${toWeightUnit(kg).toFixed(1)} ${weightUnit()}`;
-const weightChange = (kg) => `${kg < 0 ? '−' : '+'}${Math.abs(toWeightUnit(kg)).toFixed(1)} ${weightUnit()}`;
+// "−2.1 lb", "+0.4%"; no sign on a change that rounds to zero
+const changeText = (value, unit) => {
+  const text = Math.abs(value).toFixed(1);
+  return `${Number(text) ? (value < 0 ? '−' : '+') : ''}${text}${unit}`;
+};
+const weightChange = (kg) => changeText(toWeightUnit(kg), ` ${weightUnit()}`);
+const bodyFatChange = (pct) => changeText(pct, '%');
 // "1.2 lb a week (0.17 lb a day)" from a rate in kg per day
 const rateText = (kgPerDay) => {
   const u = weightUnit();
   return `${Math.abs(toWeightUnit(kgPerDay * 7)).toFixed(1)} ${u} a week (${Math.abs(toWeightUnit(kgPerDay)).toFixed(2)} ${u} a day)`;
 };
+// "0.5% a week (0.07% a day)" from a body fat rate in % per day
+const bodyFatRateText = (perDay) => `${Math.abs(perDay * 7).toFixed(1)}% a week (${Math.abs(perDay).toFixed(2)}% a day)`;
+// A goal amount: "185.0 lb" or "18%"
+const goalValueText = (metric, v) => (metric === 'bodyFat' ? `${fmt(v)}%` : weightText(v));
 
 async function loadWeights() {
   state.weights = await db.allWeights();
 }
 
-// Everything the goals depend on, worked out from today's numbers.
+// Everything the goals depend on, worked out from today's numbers:
+//  trend: your 7-day average weight (and recent body fat); bodyFat: your 7-day average body fat
+//  goal: your weight or body fat goal, starting from your average on its start date; progress: how it's going
+//  target: the calories that keep you on course
 function currentPlan() {
   const s = settings.get();
   const today = dateKey();
   const profile = s.profile || {};
   const trend = trendAt(state.weights, today);
+  const bodyFat = bodyFatAt(state.weights, today);
   const maint = trend ? maintenance(profile, trend.kg, trend.bodyFat) : null;
-  const goal = s.weightGoal && trend ? goalProgress(s.weightGoal, trend.kg, today) : null;
-  const goalActive = Boolean(goal) && !['reached', 'overdue'].includes(goal.status);
-  // Aim for the pace that still finishes on time, so being behind or ahead adjusts the calories.
-  const target = maint ? calorieTarget(maint.calories, goalActive ? goal.neededPerDay * 7 : 0, trend.kg, profile.sex) : null;
-  return { today, profile, trend, maint, weightGoal: s.weightGoal || null, goal, goalActive, target };
+  const saved = normalizeGoal(s.weightGoal); // weight or body fat; the setting's name is from before body fat goals
+  const goal = saved && { ...saved, start: goalStart(saved, state.weights) };
+  let progress = null;
+  let perWeekKg = 0; // the weight change the calories aim for
+  if (goal?.metric === 'weight' && trend) {
+    progress = goalProgress(goal, trend.kg, today, weightTolerance(trend.kg));
+    // Aim for the pace that still finishes on time, so being behind or ahead adjusts the calories.
+    perWeekKg = progress.neededPerDay * 7;
+  } else if (goal?.metric === 'bodyFat' && trend && bodyFat) {
+    progress = goalProgress(goal, bodyFat.pct, today, BODY_FAT_TOLERANCE);
+    // Calories aim for what you'd weigh at the goal body fat, keeping the lean mass you have now.
+    progress.leanKg = trend.kg * (1 - bodyFat.pct / 100);
+    progress.goalKg = weightAtBodyFat(trend.kg, bodyFat.pct, goal.target);
+    perWeekKg = progress.daysLeft > 0 ? ((progress.goalKg - trend.kg) / progress.daysLeft) * 7 : 0;
+  }
+  const goalActive = Boolean(progress) && !['reached', 'overdue'].includes(progress.status);
+  const target = maint ? calorieTarget(maint.calories, goalActive ? perWeekKg : 0, profile.sex) : null;
+  return { today, profile, trend, bodyFat, maint, goal, progress, goalActive, target };
 }
 
 // Sodium, sugar and fiber worked out for you: from your plan's calories (height, weight, age, sex and activity),
@@ -252,6 +280,7 @@ const TITLES = { today: '', foods: 'My Foods', goals: 'Goals', settings: 'Settin
 
 // History isn't a tab: the calendar button on Today swaps the day for the history list.
 function showView(view) {
+  if (view === 'goals' && state.view !== 'goals') state.goalMetric = null; // the goal form opens on your goal's kind
   state.view = view;
   const history = view === 'today' && state.historyOpen;
   const shown = history ? 'history' : view;
@@ -518,10 +547,9 @@ async function renderGoalsPage() {
   await loadWeights();
   const plan = currentPlan();
   renderProgress(plan);
-  renderWeightGoal(plan);
+  renderGoalForm(plan);
   renderGoals();
   renderProfile(plan);
-  renderWeighIns();
 }
 
 function renderExtraGoals() {
@@ -575,46 +603,52 @@ const STATUS = {
 };
 
 function chartRange(plan) {
-  const range = state.chartRange || (plan.weightGoal ? 'goal' : '90');
-  return range === 'goal' && !plan.weightGoal ? '90' : range;
+  const range = state.chartRange || (plan.goal ? 'goal' : '90');
+  return range === 'goal' && !plan.goal ? '90' : range;
 }
 
+// Which measure the chart shows: what you picked, else your goal's, else weight.
+const chartMetric = (plan) => state.chartMetric || plan.goal?.metric || 'weight';
+
 function renderProgress(plan) {
-  const weightMode = state.chartMetric === 'weight';
+  const metric = chartMetric(plan);
   const range = chartRange(plan);
   for (const b of document.querySelectorAll('#chartRange button')) {
-    b.hidden = b.dataset.range === 'goal' && !plan.weightGoal;
+    b.hidden = b.dataset.range === 'goal' && !plan.goal;
     b.classList.toggle('active', b.dataset.range === range);
     b.setAttribute('aria-pressed', String(b.dataset.range === range));
   }
   for (const b of document.querySelectorAll('#chartMetric button')) {
-    const on = b.dataset.metric === state.chartMetric;
+    const on = b.dataset.metric === metric;
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', String(on));
   }
-  const status = $('#progressStatus');
-  status.hidden = true;
-  if (weightMode) {
-    const g = plan.weightGoal;
+  // The goal's numbers show with the measure it's for.
+  const g = plan.goal?.metric === metric ? plan.goal : null;
+  if (metric === 'weight') {
     $('#progressLabel').textContent = 'Weight, 7-day average';
     $('#progressValue').textContent = plan.trend ? toWeightUnit(plan.trend.kg).toFixed(1) : '–';
     $('#progressUnit').textContent = plan.trend ? weightUnit() : '';
     $('#progressSub').textContent = plan.trend && g
-      ? `${weightChange(plan.trend.kg - g.startKg)} since ${shortDate(g.startDate)} · goal ${weightText(g.targetKg)} by ${shortDate(g.targetDate)}`
+      ? `${weightChange(plan.trend.kg - g.start)} since ${shortDate(g.startDate)} · goal ${weightText(g.target)} by ${shortDate(g.targetDate)}`
       : plan.trend ? `Last weigh-in ${shortDate(plan.trend.lastDate)}` : '';
-    if (plan.goal) {
-      const s = STATUS[plan.goal.status];
-      const by = ['behind', 'ahead'].includes(plan.goal.status) ? ` by ${Math.abs(toWeightUnit(plan.goal.diffKg)).toFixed(1)} ${weightUnit()}` : '';
-      status.textContent = `${s.mark} ${s.text}${by}`;
-      status.dataset.tone = s.tone;
-      status.hidden = false;
-    }
   } else {
-    const latest = [...state.weights].reverse().find((w) => w.bodyFat > 0);
-    $('#progressLabel').textContent = 'Body fat';
-    $('#progressValue').textContent = latest ? fmt(latest.bodyFat) : '–';
-    $('#progressUnit').textContent = latest ? '%' : '';
-    $('#progressSub').textContent = latest ? `Measured ${shortDate(latest.date)}` : '';
+    const bf = plan.bodyFat;
+    $('#progressLabel').textContent = 'Body fat, 7-day average';
+    $('#progressValue').textContent = bf ? fmt(bf.pct) : '–';
+    $('#progressUnit').textContent = bf ? '%' : '';
+    $('#progressSub').textContent = bf && g
+      ? `${bodyFatChange(bf.pct - g.start)} since ${shortDate(g.startDate)} · goal ${fmt(g.target)}% by ${shortDate(g.targetDate)}`
+      : bf ? `Last reading ${shortDate(bf.lastDate)}` : '';
+  }
+  const status = $('#progressStatus');
+  const p = g && plan.progress;
+  status.hidden = !p;
+  if (p) {
+    const s = STATUS[p.status];
+    const off = metric === 'weight' ? `${Math.abs(toWeightUnit(p.diff)).toFixed(1)} ${weightUnit()}` : `${Math.abs(p.diff).toFixed(1)}%`;
+    status.textContent = `${s.mark} ${s.text}${['behind', 'ahead'].includes(p.status) ? ` by ${off}` : ''}`;
+    status.dataset.tone = s.tone;
   }
   renderChart(plan);
 }
@@ -622,12 +656,13 @@ function renderProgress(plan) {
 // ----- weight chart (inline SVG) -----
 // What to plot for the chosen measure and time range, in display units.
 function chartData(plan) {
-  const weightMode = state.chartMetric === 'weight';
+  const metric = chartMetric(plan);
+  const weightMode = metric === 'weight';
   const today = dateKey();
   const series = weightMode
     ? state.weights.map((w) => ({ date: w.date, value: toWeightUnit(w.kg) }))
     : state.weights.filter((w) => w.bodyFat > 0).map((w) => ({ date: w.date, value: w.bodyFat }));
-  const goal = plan.weightGoal;
+  const { goal } = plan;
   const range = chartRange(plan);
   const last = series.length ? series[series.length - 1].date : today;
   let end = last > today ? last : today;
@@ -644,12 +679,14 @@ function chartData(plan) {
   }
   if (daysBetween(start, end) < 6) start = addDays(end, -6); // at least a week wide
   const points = series.filter((p) => p.date >= start && p.date <= end);
-  // Weight: dots are the weigh-ins, the line their 7-day average. Body fat: one line through the readings.
-  const line = weightMode
-    ? points.map((p) => ({ date: p.date, value: toWeightUnit(trendAt(state.weights, p.date).kg) }))
-    : points;
-  const planLine = weightMode && goal
-    ? [{ date: goal.startDate, value: toWeightUnit(goal.startKg) }, { date: goal.targetDate, value: toWeightUnit(goal.targetKg) }]
+  // Dots are the readings, the line their 7-day average (what goals are measured with).
+  const line = points.map((p) => ({
+    date: p.date,
+    value: weightMode ? toWeightUnit(trendAt(state.weights, p.date).kg) : bodyFatAt(state.weights, p.date).pct,
+  }));
+  const inUnit = (v) => (weightMode ? toWeightUnit(v) : v);
+  const planLine = goal?.metric === metric
+    ? [{ date: goal.startDate, value: inUnit(goal.start) }, { date: goal.targetDate, value: inUnit(goal.target) }]
     : null;
   return { weightMode, start, end, today, points, line, planLine, unit: weightMode ? weightUnit() : '%' };
 }
@@ -671,11 +708,15 @@ function renderChart(plan) {
   const data = chartData(plan);
   const empty = !data.points.length;
   $('#chartEmpty').hidden = !empty;
-  $('#chartEmpty').textContent = !data.weightMode
-    ? 'No body fat readings yet. You can add one when you log your weight.'
-    : state.weights.length ? 'No weigh-ins in this time range.' : 'Log your weight with the + button on Today to see your progress here.';
+  if (data.weightMode) {
+    $('#chartEmpty').textContent = state.weights.length ? 'No weigh-ins in this time range.' : 'Log your weight with the + button on Today to see your progress here.';
+  } else {
+    $('#chartEmpty').textContent = state.weights.some((w) => w.bodyFat > 0)
+      ? 'No body fat readings in this time range.'
+      : 'No body fat readings yet. You can add one when you log your weight.';
+  }
   box.hidden = empty;
-  $('#chartLegend').hidden = empty || !data.weightMode;
+  $('#chartLegend').hidden = empty;
   box.chart = null;
   if (empty) {
     box.innerHTML = '';
@@ -733,7 +774,7 @@ function renderChart(plan) {
     svg.push(`<path class="trend" d="${data.line.map((p, i) => `${i ? 'L' : 'M'}${r1(x(p.date))} ${r1(y(p.value))}`).join('')}"/>`);
   }
   for (const p of data.points) {
-    svg.push(`<circle class="point${data.weightMode ? '' : ' main'}" cx="${r1(x(p.date))}" cy="${r1(y(p.value))}" r="4"/>`);
+    svg.push(`<circle class="point" cx="${r1(x(p.date))}" cy="${r1(y(p.value))}" r="4"/>`);
   }
   svg.push(`<g class="cross" style="display:none"><line y1="${pad.t}" y2="${pad.t + plotH}"/><circle r="5"/></g>`);
 
@@ -747,13 +788,12 @@ function renderChart(plan) {
   const trendOn = new Map(data.line.map((p) => [p.date, p.value]));
   box.chart = {
     width: W,
-    weightMode: data.weightMode,
     unit: data.unit,
-    points: data.points.map((p) => ({ ...p, px: x(p.date), py: y(p.value), trend: data.weightMode ? trendOn.get(p.date) : null })),
+    points: data.points.map((p) => ({ ...p, px: x(p.date), py: y(p.value), trend: trendOn.get(p.date) })),
     index: data.points.length - 1,
   };
   $('#chartLegend').innerHTML = `
-    <span><i class="key dot"></i>Weigh-in</span>
+    <span><i class="key dot"></i>${data.weightMode ? 'Weigh-in' : 'Reading'}</span>
     <span><i class="key line"></i>7-day average</span>
     ${data.planLine ? '<span><i class="key plan"></i>Plan</span>' : ''}`;
 }
@@ -775,9 +815,9 @@ function showChartPoint(i) {
   const tip = box.querySelector('.chart-tip');
   tip.replaceChildren();
   const value = document.createElement('b');
-  value.textContent = `${fmt(p.value)} ${c.unit}`;
+  value.textContent = c.unit === '%' ? `${fmt(p.value)}%` : `${fmt(p.value)} ${c.unit}`;
   const detail = document.createElement('span');
-  detail.textContent = `${shortDate(p.date)}${c.weightMode && p.trend != null ? ` · avg ${fmt(p.trend)}` : ''}`;
+  detail.textContent = `${shortDate(p.date)}${p.trend != null ? ` · avg ${fmt(p.trend)}` : ''}`;
   tip.append(value, detail);
   tip.hidden = false;
   const scale = box.clientWidth / c.width || 1;
@@ -793,56 +833,58 @@ function hideChartPoint() {
   if (tip) tip.hidden = true;
 }
 
-function renderWeighIns() {
-  const all = [...state.weights].reverse();
-  const shown = state.showAllWeighIns ? all : all.slice(0, 5);
-  $('#weighInEmpty').hidden = all.length > 0;
-  $('#showAllWeighIns').hidden = all.length <= 5 || state.showAllWeighIns;
-  $('#weighInList').innerHTML = shown
-    .map((w) => `
-      <li data-weight="${w.date}">
-        <div class="grow">
-          <div class="name">${esc(shortDate(w.date))}</div>
-          ${w.bodyFat ? `<div class="muted small">${fmt(w.bodyFat)}% body fat</div>` : ''}
-        </div>
-        <div class="kcal">${toWeightUnit(w.kg).toFixed(1)}<small>${weightUnit()}</small></div>
-      </li>`)
-    .join('');
-}
+// ----- weight or body fat goal -----
+const METRIC_NAMES = { weight: 'weight', bodyFat: 'body fat' };
+// Which kind of goal the form shows: what you picked, else your goal's kind, else weight.
+const goalFormMetric = (plan) => state.goalMetric || plan.goal?.metric || 'weight';
 
-// ----- weight goal -----
-function renderWeightGoal(plan) {
+function renderGoalForm(plan) {
   const form = $('#weightGoalForm');
-  const g = plan.weightGoal;
+  const metric = goalFormMetric(plan);
+  const g = plan.goal?.metric === metric ? plan.goal : null; // the goal the form edits
   const focus = document.activeElement;
-  for (const el of document.querySelectorAll('.wunit')) el.textContent = weightUnit();
-  if (form.target !== focus) form.target.value = g ? toWeightUnit(g.targetKg).toFixed(1) : '';
+  for (const b of document.querySelectorAll('#goalMetric button')) {
+    const on = b.dataset.metric === metric;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+  $('#goalTargetLabel').textContent = metric === 'weight' ? `Goal weight (${weightUnit()})` : 'Goal body fat (%)';
+  if (form.target !== focus) form.target.value = g ? (metric === 'weight' ? toWeightUnit(g.target).toFixed(1) : fmt(g.target)) : '';
   if (form.date !== focus) form.date.value = g ? g.targetDate : '';
   form.date.min = addDays(plan.today, 1);
   $('#saveGoalBtn').textContent = g ? 'Update goal' : 'Set goal';
   $('#goalLinks').hidden = !g;
   $('#usePlanBtn').hidden = !(g && plan.target && !settings.get().goals?.auto);
-  $('#goalSummary').innerHTML = goalSummary(plan);
+  $('#goalSummary').innerHTML = goalSummary(plan, metric);
 }
 
-function goalSummary(plan) {
-  const g = plan.weightGoal;
-  if (!plan.trend) return '<p class="muted">Log your weight first. Your plan starts from your current weight.</p>';
-  if (!g) return '<p class="muted">Pick a goal weight and a date to get a daily and weekly guide.</p>';
-  const p = plan.goal;
-  const verb = p.losing ? 'Lose' : 'Gain';
-  const out = [
-    `<p><b>Plan:</b> ${verb.toLowerCase()} ${esc(weightText(Math.abs(g.targetKg - g.startKg)))} between ${esc(shortDate(g.startDate))} and ${esc(shortDate(g.targetDate))}, about ${esc(rateText(p.planPerDay))}.</p>`,
-  ];
+function goalSummary(plan, metric) {
+  const g = plan.goal?.metric === metric ? plan.goal : null;
+  const weight = metric === 'weight';
+  if (!(weight ? plan.trend : plan.bodyFat)) {
+    return weight
+      ? '<p class="muted">Log your weight first. Your plan starts from your 7-day average.</p>'
+      : '<p class="muted">Log your body fat first: add it when you log your weight. Your plan starts from your 7-day average.</p>';
+  }
+  if (!g) {
+    const replaces = plan.goal ? ` This replaces your ${METRIC_NAMES[plan.goal.metric]} goal.` : '';
+    return `<p class="muted">Pick a goal ${weight ? 'weight' : 'body fat'} and a date to get a daily and weekly guide.${replaces}</p>`;
+  }
+  const p = plan.progress;
+  const verb = p.losing ? 'lose' : 'gain';
+  const rate = weight ? rateText : bodyFatRateText;
+  const between = `between ${esc(shortDate(g.startDate))} and ${esc(shortDate(g.targetDate))}`;
+  const out = [weight
+    ? `<p><b>Plan:</b> ${verb} ${esc(weightText(Math.abs(g.target - g.start)))} ${between}, about ${esc(rate(p.planPerDay))}.</p>`
+    : `<p><b>Plan:</b> body fat from ${fmt(g.start)}% to ${fmt(g.target)}% ${between}, about ${esc(rate(p.planPerDay))}.</p>`];
   if (p.status === 'reached') {
     out.push('<p><b>You reached your goal.</b> Set a new one, or remove it to eat at maintenance.</p>');
   } else if (p.status === 'overdue') {
-    out.push(`<p><b>The date has passed</b> with ${esc(weightText(Math.abs(p.remainingKg)))} to go. Pick a new date to keep going.</p>`);
+    out.push(`<p><b>The date has passed</b> with ${esc(goalValueText(metric, Math.abs(p.remaining)))} to go. Pick a new date to keep going.</p>`);
   } else {
-    out.push(`<p><b>From today:</b> ${verb.toLowerCase()} ${esc(rateText(p.neededPerDay))} to finish on time (${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'} left).</p>`);
-    const weekly = Math.abs(p.neededPerDay * 7);
-    if (weekly > plan.trend.kg * (p.losing ? 0.01 : 0.005)) {
-      out.push(`<p class="warn-text">That's faster than ${p.losing ? '1%' : '0.5%'} of your body weight a week, which is hard to sustain, so your calories are capped at a safer pace. A later date would be more realistic.</p>`);
+    out.push(`<p><b>From today:</b> ${verb} ${esc(rate(p.neededPerDay))} to finish on time (${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'} left).</p>`);
+    if (!weight) {
+      out.push(`<p>At ${fmt(g.target)}% body fat you'd weigh about ${esc(weightText(p.goalKg))} if your lean mass (${esc(weightText(p.leanKg))}) stays the same, so your calories aim for that weight.</p>`);
     }
   }
   return out.join('');
@@ -866,7 +908,7 @@ function renderProfile(plan) {
   const set = (el, v) => { if (el !== focus) el.value = v ?? ''; };
   const imp = imperial();
   const fi = p.heightCm ? feetInchesFromCm(p.heightCm) : null;
-  set(form.sex, p.sex || '');
+  set(form.sex, ['male', 'female'].includes(p.sex) ? p.sex : ''); // "Other" was a choice once: now unset
   set(form.age, p.age || '');
   set(form.activity, p.activity || '');
   set(form.units, imp ? 'imperial' : 'metric');
@@ -885,9 +927,10 @@ function maintenanceText(plan) {
     return `You burn about ${kcal(Math.round(m.calories / 10) * 10)} kcal a day: ${kcal(m.resting)} at rest × ${m.activity.factor} for being ${m.activity.label.toLowerCase()}${m.method === 'katch' ? ' (using your body fat %)' : ''}.`;
   }
   const p = plan.profile;
-  const bodyFatKnown = Boolean(plan.trend?.bodyFat);
+  const bodyFatKnown = Boolean(plan.trend?.bodyFat); // with body fat, sex, age and height aren't needed
   const missing = [];
   if (!plan.trend) missing.push('weight');
+  if (!['male', 'female'].includes(p.sex) && !bodyFatKnown) missing.push('sex');
   if (!(p.age > 0) && !bodyFatKnown) missing.push('age');
   if (!(p.heightCm > 0) && !bodyFatKnown) missing.push('height');
   if (!p.activity) missing.push('activity level');
@@ -914,14 +957,13 @@ function planText(plan) {
   if (!plan.trend) return 'Log your weight to use your plan. Until then, the calories below are used.';
   if (!plan.maint) return 'Fill in About you to use your plan. Until then, the calories below are used.';
   const maint = Math.round(plan.maint.calories / 10) * 10;
-  if (!plan.goalActive) {
-    return `You burn about ${kcal(maint)} kcal a day, so that's your target${plan.weightGoal ? '' : '. Set a weight goal above to lose or gain'}.`;
-  }
   const t = plan.target;
-  const verb = plan.goal.losing ? 'lose' : 'gain';
-  let text = `About ${kcal(maint)} kcal burned ${t.adjustment < 0 ? '−' : '+'} ${kcal(Math.abs(t.adjustment))} to ${verb} ${Math.abs(toWeightUnit(t.perWeekKg)).toFixed(1)} ${weightUnit()} a week = ${kcal(t.calories)} kcal a day.`;
+  const change = t.calories - maint; // both rounded to 10, so the sum below adds up
+  if (!plan.goalActive || !change) {
+    return `You burn about ${kcal(maint)} kcal a day, so that's your target${plan.goal ? '' : '. Set a goal above to lose or gain'}.`;
+  }
+  let text = `About ${kcal(maint)} kcal burned ${change < 0 ? '−' : '+'} ${kcal(Math.abs(change))} to ${change < 0 ? 'lose' : 'gain'} ${Math.abs(toWeightUnit(t.perWeekKg)).toFixed(1)} ${weightUnit()} a week = ${kcal(t.calories)} kcal a day.`;
   if (t.floored) text += ` That's the ${kcal(t.minimum)} kcal minimum; a later goal date would be gentler.`;
-  else if (t.limited) text += ' Capped at a safe pace.';
   return text;
 }
 
@@ -1267,7 +1309,7 @@ async function submitPortion() {
 }
 
 // ---------- log weight ----------
-// The weigh-in is for one day: the day being viewed on Today (today when opened from Goals).
+// The weigh-in is for one day: the day being viewed on Today.
 function openWeightDialog(date = state.date) {
   const form = $('#weightForm');
   form.reset();
@@ -1413,31 +1455,33 @@ function wire() {
     resizeTimer = setTimeout(() => { if (state.view === 'goals') renderChart(currentPlan()); }, 150);
   });
 
-  // Goals page: weigh-ins
-  $('#weighInList').addEventListener('click', (e) => {
-    const li = e.target.closest('li[data-weight]');
-    if (li) openWeightDialog(li.dataset.weight);
+  // Goals page: weight or body fat goal
+  $('#goalMetric').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-metric]');
+    if (!b) return;
+    state.goalMetric = b.dataset.metric;
+    renderGoalForm(currentPlan());
   });
-  $('#goalsLogWeightBtn').addEventListener('click', () => openWeightDialog(dateKey()));
-  $('#showAllWeighIns').addEventListener('click', () => {
-    state.showAllWeighIns = true;
-    renderWeighIns();
-  });
-
-  // Goals page: weight goal
   $('#weightGoalForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const form = e.target;
     const plan = currentPlan();
-    if (!plan.trend) return toast('Log your weight first');
-    const targetKg = fromWeightUnit(Number(form.target.value));
+    const metric = goalFormMetric(plan);
+    const weight = metric === 'weight';
+    const current = weight ? plan.trend?.kg : plan.bodyFat?.pct;
+    if (!current) return toast(weight ? 'Log your weight first' : 'Log your body fat first');
+    const value = Number(form.target.value);
     const targetDate = form.date.value;
-    if (!(targetKg > 0) || !targetDate) return toast('Enter a goal weight and a date');
+    if (!(value > 0) || !targetDate) return toast(`Enter a goal ${weight ? 'weight' : 'body fat'} and a date`);
+    if (!weight && !(value >= 3 && value <= 75)) return toast('Body fat should be between 3% and 75%');
     if (targetDate <= plan.today) return toast('Pick a date after today');
-    const old = plan.weightGoal;
-    // Editing keeps the original start, so progress still counts from the beginning.
-    const start = old ? { startKg: old.startKg, startDate: old.startDate } : { startKg: plan.trend.kg, startDate: plan.today };
-    settings.set({ weightGoal: { ...start, targetKg, targetDate } });
+    const old = plan.goal?.metric === metric ? plan.goal : null;
+    // Editing keeps the original start, so progress still counts from the beginning. A new goal starts
+    // today, from your 7-day average (and replaces a goal of the other kind).
+    const start = old ? { start: old.start, startDate: old.startDate } : { start: current, startDate: plan.today };
+    settings.set({ weightGoal: goalRecord({ metric, ...start, target: weight ? fromWeightUnit(value) : value, targetDate }) });
+    state.goalMetric = null;
+    state.chartMetric = metric; // show the chart the goal is on
     toast(old ? 'Goal updated' : 'Goal set');
     form.target.blur();
     renderGoalsPage();
@@ -1450,14 +1494,18 @@ function wire() {
   });
   $('#restartGoalBtn').addEventListener('click', () => {
     const plan = currentPlan();
-    if (!plan.trend || !plan.weightGoal) return;
-    settings.set({ weightGoal: { ...plan.weightGoal, startKg: plan.trend.kg, startDate: plan.today } });
+    const g = plan.goal;
+    const current = g && (g.metric === 'weight' ? plan.trend?.kg : plan.bodyFat?.pct);
+    if (!current) return;
+    settings.set({ weightGoal: goalRecord({ ...g, start: current, startDate: plan.today }) });
     toast('Plan restarted from today');
     renderGoalsPage();
   });
   $('#removeGoalBtn').addEventListener('click', () => {
-    if (!confirm('Remove your weight goal? Your weigh-ins stay.')) return;
+    const g = currentPlan().goal;
+    if (!g || !confirm(`Remove your ${METRIC_NAMES[g.metric]} goal? Your weigh-ins stay.`)) return;
     settings.set({ weightGoal: undefined });
+    state.goalMetric = null;
     renderGoalsPage();
   });
 
@@ -1469,7 +1517,7 @@ function wire() {
     renderActivityHint();
     const plan = currentPlan();
     $('#maintenanceNote').textContent = maintenanceText(plan);
-    renderWeightGoal(plan);
+    renderGoalForm(plan);
     renderGoals();
   });
   profileForm.units.addEventListener('change', () => {
@@ -1496,7 +1544,7 @@ function wire() {
     if (!b) return;
     saveGoals({ ...normalizeGoals(settings.get()), auto: b.dataset.source === 'plan' });
     renderGoals();
-    renderWeightGoal(currentPlan());
+    renderGoalForm(currentPlan());
   });
 
   // Add sheet

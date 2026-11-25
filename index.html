@@ -110,8 +110,8 @@
           <button type="button" data-range="all">All</button>
         </div>
         <div class="segmented compact" id="chartMetric" role="group" aria-label="Show">
-          <button type="button" data-metric="weight">Weight</button>
-          <button type="button" data-metric="bodyFat">Body fat</button>
+          <button type="button" data-metric="weight" aria-label="Weight" title="Weight">WT</button>
+          <button type="button" data-metric="bodyFat" aria-label="Body fat" title="Body fat">BF%</button>
         </div>
       </div>
       <div class="card">
@@ -128,10 +128,14 @@
         <p class="empty" id="chartEmpty" hidden></p>
       </div>
       <div class="card">
-        <h2 class="card-title">Weight goal</h2>
+        <h2 class="card-title">Goal</h2>
+        <div class="segmented two" id="goalMetric" role="group" aria-label="Goal for">
+          <button type="button" data-metric="weight">Weight</button>
+          <button type="button" data-metric="bodyFat">Body fat</button>
+        </div>
         <form id="weightGoalForm" novalidate>
           <div class="grid2">
-            <label class="field">Goal weight (<span class="wunit">lb</span>)
+            <label class="field"><span id="goalTargetLabel">Goal weight (lb)</span>
               <input name="target" type="number" step="any" min="1" inputmode="decimal">
             </label>
             <label class="field">Reach it by
@@ -193,9 +197,8 @@
             <label class="field">Sex
               <select name="sex">
                 <option value="">Choose…</option>
-                <option value="female">Female</option>
                 <option value="male">Male</option>
-                <option value="other">Other / rather not say</option>
+                <option value="female">Female</option>
               </select>
             </label>
             <label class="field">Age
@@ -224,15 +227,6 @@
         </form>
         <p class="muted small" id="maintenanceNote"></p>
         <p class="muted small">These are estimates, not medical advice. Check with a doctor before big changes, especially if you're pregnant, under 18 or have a health condition.</p>
-      </div>
-      <div class="card">
-        <h2 class="card-title">Weigh-ins</h2>
-        <ul class="list rows" id="weighInList"></ul>
-        <p class="muted small" id="weighInEmpty">No weigh-ins yet.</p>
-        <div class="row gap">
-          <button type="button" class="btn grow" id="goalsLogWeightBtn"><span class="icon icon-scale" aria-hidden="true"></span>Log weight</button>
-          <button type="button" class="btn" id="showAllWeighIns" hidden>Show all</button>
-        </div>
       </div>
     </section>
 
@@ -289,7 +283,7 @@
         </div>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
-      <p class="credits muted small">Version 8 · Icons by <a href="https://www.streamlinehq.com" target="_blank" rel="noopener">Streamline</a></p>
+      <p class="credits muted small">Version 9 · Icons by <a href="https://www.streamlinehq.com" target="_blank" rel="noopener">Streamline</a></p>
     </section>
   </main>
 
