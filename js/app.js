@@ -10,6 +10,7 @@ import {
   trendAt, maintenance, goalProgress, calorieTarget,
 } from './plan.js';
 import { FOOD_EMOJI_GROUPS, sanitizeEmoji, emojiName } from './food-emojis.js';
+import { ACCENTS, ACCENT_VARS, accentVars, parseHex } from './colors.js';
 import { scanLabel } from './scanner.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -89,18 +90,47 @@ function protectStorage() {
   navigator.storage.persisted().then((ok) => ok || navigator.storage.persist()).catch(() => {});
 }
 
-// ---------- appearance: Light / Dark / Automatic ----------
-// Saved on this device only (not synced, kept on sign-out). index.html applies it before the page draws.
-const THEME_KEY = 'ssct-theme';
+// ---------- appearance: theme and accent color ----------
+// Saved on this device only (not synced, kept on sign-out). index.html applies both before the page draws.
+// Defaults: Light, green.
+const THEME_KEY = 'ssct-theme'; // 'light' | 'dark' | 'auto'
+const ACCENT_KEY = 'ssct-accent'; // { key, hex, vars } for anything but green
 
 function setTheme(theme) {
-  try {
-    if (theme === 'auto') localStorage.removeItem(THEME_KEY);
-    else localStorage.setItem(THEME_KEY, theme);
-  } catch { /* private mode: still applies until the page closes */ }
+  try { localStorage.setItem(THEME_KEY, theme); } catch { /* private mode: still applies until the page closes */ }
   if (theme === 'auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = theme;
   renderTheme();
+}
+
+function getAccent() {
+  try { return JSON.parse(localStorage.getItem(ACCENT_KEY)) || { key: 'green', hex: ACCENTS[0].light }; } catch { return { key: 'green', hex: ACCENTS[0].light }; }
+}
+
+// choice: a preset key, or 'custom' with a hex color.
+function setAccent(key, hex) {
+  const preset = ACCENTS.find((a) => a.key === key);
+  if (!preset && !parseHex(hex)) return;
+  const vars = preset ? accentVars(preset.light, preset.dark, preset.chartDark) : accentVars(hex.toLowerCase());
+  try {
+    if (key === 'green') localStorage.removeItem(ACCENT_KEY);
+    else localStorage.setItem(ACCENT_KEY, JSON.stringify({ key: preset ? key : 'custom', hex: preset ? preset.light : hex, vars }));
+  } catch { /* private mode */ }
+  const root = document.documentElement.style;
+  for (const name of ACCENT_VARS) {
+    if (key === 'green') root.removeProperty(`--${name}`);
+    else root.setProperty(`--${name}`, vars[name]);
+  }
+  $('meta[name=theme-color]').content = vars['accent-l'];
+  renderTheme();
+  if (state.view === 'goals') renderChart(currentPlan()); // the chart reads the line color when drawn
+}
+
+function buildAccentSwatches() {
+  $('#accentSwatches').innerHTML = ACCENTS
+    .map((a) => `<button type="button" class="swatch" data-accent="${a.key}" style="--swatch:${a.light}" aria-label="${esc(a.label)}"></button>`)
+    .join('') + `
+    <label class="swatch custom" aria-label="Custom color"><input type="color" id="accentCustom" value="#16a34a"></label>`;
 }
 
 function renderTheme() {
@@ -109,6 +139,18 @@ function renderTheme() {
     const on = b.dataset.themeOption === theme;
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', String(on));
+  }
+  const accent = getAccent();
+  for (const b of document.querySelectorAll('#accentSwatches [data-accent]')) {
+    const on = b.dataset.accent === accent.key;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+  const custom = $('#accentSwatches .custom');
+  custom.classList.toggle('active', accent.key === 'custom');
+  if (accent.key === 'custom') {
+    custom.style.setProperty('--swatch', accent.hex);
+    if (document.activeElement !== $('#accentCustom')) $('#accentCustom').value = accent.hex;
   }
 }
 
@@ -368,8 +410,18 @@ function filterFoods(q) {
     || (f.emoji && (f.emoji === asEmoji || emojiName(f.emoji).includes(q))));
 }
 
+// Most-logged first (counted from your entries), then most recently used, then by name.
+async function loadFoodsByUse() {
+  const [foods, entries] = await Promise.all([db.allFoods(), db.allEntries()]);
+  const uses = new Map();
+  for (const e of entries) if (e.foodId) uses.set(e.foodId, (uses.get(e.foodId) || 0) + 1);
+  foods.sort((a, b) => (uses.get(b.id) || 0) - (uses.get(a.id) || 0)
+    || (b.lastUsed || 0) - (a.lastUsed || 0) || a.name.localeCompare(b.name));
+  state.foods = foods;
+}
+
 async function renderFoods() {
-  await loadFoods();
+  await loadFoodsByUse();
   const list = filterFoods($('#foodSearch').value);
   $('#foodList').innerHTML = list.map(foodItem).join('');
   $('#emptyFoods').hidden = state.foods.length > 0;
@@ -386,7 +438,6 @@ async function renderHistory() {
   }
   const weightOn = new Map(state.weights.map((w) => [w.date, w]));
   const days = [...new Set([...byDay.keys(), ...weightOn.keys()])].sort().reverse();
-  const foodDays = [...byDay.keys()].sort().reverse();
   const goal = getGoals().calories;
 
   $('#emptyHistory').hidden = days.length > 0;
@@ -394,42 +445,32 @@ async function renderHistory() {
     .map((d) => {
       const dayEntries = byDay.get(d) || [];
       const t = sumNutrition(dayEntries);
-      const pct = goal ? Math.min(100, (t.calories / goal) * 100) : 0;
       const w = weightOn.get(d);
-      const food = dayEntries.length ? `${macroLine(t)} · ${dayEntries.length} items` : 'No food logged';
+      const food = dayEntries.length ? macroLine(t) : 'No food logged';
       return `
         <li data-date="${d}">
           <div class="grow">
             <div class="name">${esc(prettyDate(d))}</div>
             <div class="muted small">${food}${w ? ` · ${esc(weightText(w.kg))}` : ''}</div>
-            ${goal && dayEntries.length ? `<div class="meter cal thin${t.calories > goal ? ' over' : ''}"><div style="width:${pct}%"></div></div>` : ''}
+            ${dayEntries.length ? macroBar(t, goal) : ''}
           </div>
           <div class="kcal">${t.calories}<small>kcal</small></div>
         </li>`;
     })
     .join('');
+}
 
-  // Averages over logged days in the last 7 / 30 days.
-  const today = dateKey();
-  const avg = (n) => {
-    const from = shiftDate(today, -(n - 1));
-    const ds = foodDays.filter((d) => d >= from && d <= today);
-    if (!ds.length) return null;
-    const totals = ds.map((d) => sumNutrition(byDay.get(d)));
-    return {
-      calories: Math.round(totals.reduce((a, t) => a + t.calories, 0) / ds.length),
-      protein: Math.round(totals.reduce((a, t) => a + t.protein, 0) / ds.length),
-    };
-  };
-  const a7 = avg(7);
-  const a30 = avg(30);
-  $('#averages').hidden = !a7 && !a30;
-  $('#averages').innerHTML = `
-    <div class="avg-row">
-      <div><small>7-day avg</small><b>${a7 ? a7.calories : '–'}</b><span class="muted small">${a7 ? `kcal · ${a7.protein}g protein` : ''}</span></div>
-      <div><small>30-day avg</small><b>${a30 ? a30.calories : '–'}</b><span class="muted small">${a30 ? `kcal · ${a30.protein}g protein` : ''}</span></div>
-    </div>
-    <p class="muted small">Averages only count days you logged something.</p>`;
+// One bar split into protein, carbs and fat by the calories each gave. With a calorie goal,
+// the bar's length is the day's share of the goal (full at or over it).
+function macroBar(t, goal) {
+  const from = { protein: t.protein * 4, carbs: t.carbs * 4, fat: t.fat * 9 };
+  const total = MACROS.reduce((sum, m) => sum + from[m], 0);
+  if (!total) return '';
+  const width = goal ? Math.min(100, (t.calories / goal) * 100) : 100;
+  const pct = (m) => Math.round((from[m] / total) * 100);
+  const label = `${kcal(t.calories)} kcal${goal ? ` of ${kcal(goal)}` : ''}: ${pct('protein')}% protein, ${pct('carbs')}% carbs, ${pct('fat')}% fat`;
+  const parts = MACROS.filter((m) => from[m] > 0).map((m) => `<i class="${m}" style="flex-grow:${from[m].toFixed(1)}"></i>`).join('');
+  return `<div class="macro-bar${goal ? ' has-goal' : ''}" role="img" aria-label="${esc(label)}"><div class="fill" style="width:${width.toFixed(1)}%">${parts}</div></div>`;
 }
 
 // ---------- goals page ----------
@@ -861,15 +902,22 @@ function renderGoals(typing) {
     : following ? 'The grams are worked out from your plan\'s calories.' : 'Enter your daily calories and the grams are worked out for you.';
 }
 
+// ---------- sheets ----------
+// Focus the sheet itself on open (not its first button), so the close button doesn't show a focus ring.
+function openSheet(dialog) {
+  dialog.showModal();
+  dialog.focus({ preventScroll: true });
+}
+
 // ---------- add sheet ----------
 function openAddSheet() {
   $('#addSearch').value = '';
   renderAddList();
-  $('#addDialog').showModal();
+  openSheet($('#addDialog'));
 }
 
 async function renderAddList() {
-  await loadFoods();
+  await loadFoodsByUse();
   const list = filterFoods($('#addSearch').value);
   $('#addList').innerHTML = list.map(foodItem).join('');
   $('#addEmpty').hidden = state.foods.length > 0;
@@ -956,7 +1004,7 @@ function openFoodEditor(mode, food = null) {
   $('#saveFavRow').hidden = mode !== 'log';
   form.saveFav.checked = true;
   $('#scanStatus').hidden = true;
-  $('#foodDialog').showModal();
+  openSheet($('#foodDialog'));
 }
 
 function readFoodForm() {
@@ -1067,7 +1115,7 @@ function openPortion(ctx) {
   $('#portionSubmitBtn').textContent = ctx.entry ? 'Update' : day === 'Today' ? 'Add' : `Add to ${day}`;
   $('#deleteEntryBtn').hidden = !ctx.entry;
   updatePortionPreview();
-  $('#portionDialog').showModal();
+  openSheet($('#portionDialog'));
 }
 
 function portionNutrition() {
@@ -1127,20 +1175,21 @@ async function submitPortion() {
 }
 
 // ---------- log weight ----------
+// The weigh-in is for one day: the day being viewed on Today (today when opened from Goals).
 function openWeightDialog(date = state.date) {
   const form = $('#weightForm');
   form.reset();
-  form.date.max = dateKey();
-  form.date.value = date > form.date.max ? form.date.max : date;
+  form.dataset.date = date > dateKey() ? dateKey() : date;
   form.unit.value = weightUnit();
+  $('#weightDate').textContent = prettyDate(form.dataset.date);
   fillWeightForm();
-  $('#weightDialog').showModal();
+  openSheet($('#weightDialog'));
 }
 
-// Shows the weigh-in for the chosen date (to edit), or a blank form with the previous one as a hint.
+// Shows that day's weigh-in (to edit), or a blank form with the previous one as a hint.
 function fillWeightForm() {
   const form = $('#weightForm');
-  const date = form.date.value;
+  const date = form.dataset.date;
   const existing = state.weights.find((w) => w.date === date);
   const before = [...state.weights].reverse().find((w) => w.date < date);
   const inUnit = (kg) => (form.unit.value === 'kg' ? kg : kgToLb(kg)).toFixed(1);
@@ -1154,10 +1203,8 @@ function fillWeightForm() {
 
 async function submitWeight() {
   const form = $('#weightForm');
-  const date = form.date.value;
+  const { date } = form.dataset;
   const value = Number(form.weight.value);
-  if (!date) return toast('Pick a date');
-  if (date > dateKey()) return toast("You can't log a weight for a future date");
   if (!(value > 0)) return toast('Enter your weight');
   const kg = form.unit.value === 'kg' ? value : lbToKg(value);
   if (kg < 20 || kg > 400) return toast("That weight doesn't look right");
@@ -1211,7 +1258,6 @@ function wire() {
   // Log weight
   const wf = $('#weightForm');
   wf.addEventListener('submit', (e) => { e.preventDefault(); submitWeight(); });
-  wf.date.addEventListener('change', fillWeightForm);
   wf.unit.addEventListener('change', () => {
     // Convert what's typed, and remember the choice for the whole app.
     const v = Number(wf.weight.value);
@@ -1224,7 +1270,7 @@ function wire() {
     wf.bodyFat.value = typedBodyFat;
   });
   $('#deleteWeightBtn').addEventListener('click', async () => {
-    await db.deleteWeight(wf.date.value);
+    await db.deleteWeight(wf.dataset.date);
     $('#weightDialog').close();
     toast('Weight removed');
     render();
@@ -1428,6 +1474,12 @@ function wire() {
     const b = e.target.closest('button[data-theme-option]');
     if (b) setTheme(b.dataset.themeOption);
   });
+  $('#accentSwatches').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-accent]');
+    if (b) setAccent(b.dataset.accent);
+  });
+  // The custom color updates live while you move around the picker.
+  $('#accentCustom').addEventListener('input', (e) => setAccent('custom', e.target.value));
 
   // Goals page: daily nutrition presets
   $('#goalModes').addEventListener('click', (e) => {
@@ -1543,6 +1595,7 @@ function wire() {
 
 buildGoalModes();
 buildActivityOptions();
+buildAccentSwatches();
 buildEmojiGrid();
 wire();
 showView('today');
