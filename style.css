@@ -345,6 +345,10 @@ legend { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
 .segmented.compact { flex: 1; margin: 0; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; }
 .segmented.compact button { padding: 8px 4px; font-size: 14px; }
 .segmented.compact button[hidden] { display: none; }
+/* WT / BF% only takes the room its labels need, leaving the rest to the time range. */
+#chartMetric { flex: none; grid-auto-columns: minmax(46px, auto); }
+#chartMetric button { padding: 8px 10px; }
+#goalMetric { margin-bottom: 12px; }
 .segmented.two { grid-template-columns: 1fr 1fr; }
 .progress-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .hero-row { display: flex; align-items: baseline; gap: 6px; margin: 2px 0; }
@@ -366,7 +370,6 @@ legend { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
 .chart .goal-dot { fill: var(--card); stroke: var(--muted); stroke-width: 2; }
 .chart .trend { stroke: var(--chart-line); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
 .chart .point { fill: var(--chart-point); stroke: var(--card); stroke-width: 2; }
-.chart .point.main { fill: var(--chart-line); }
 .chart .cross line { stroke: var(--muted); stroke-width: 1; }
 .chart .cross circle { fill: var(--chart-line); stroke: var(--card); stroke-width: 2; }
 .chart-tip {
@@ -384,7 +387,6 @@ legend { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
 
 .goal-summary { font-size: 14px; margin: 2px 0 12px; }
 .goal-summary p { margin: 0 0 6px; }
-.warn-text { color: var(--over); }
 .goal-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
 .goal-links .link { padding-top: 10px; }
 .danger-link { color: var(--danger); }
@@ -392,7 +394,6 @@ legend { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
 .inline-inputs label { position: relative; display: block; }
 .inline-inputs input { padding-right: 34px; }
 .inline-inputs span { position: absolute; right: 12px; top: 50%; transform: translateY(-35%); color: var(--muted); font-size: 15px; pointer-events: none; }
-.list.rows li { padding: 10px 12px; }
 #planNote { margin-top: 0; }
 .field-hint { display: block; margin-top: 4px; font-size: 12px; }
 

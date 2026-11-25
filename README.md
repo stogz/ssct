@@ -8,12 +8,12 @@ A tiny calorie and macro tracker that runs in your phone's browser and can be in
 - **Today**: the day's calories, protein, carbs and fat, with meters that fill up toward your daily goals (protein red, carbs purple, fat yellow), plus sodium, sugar and fiber (blue, orange, green) if you turn them on in Settings. Below that: the foods you logged and that day's weigh-in. The arrows step through days.
 - **History**: the calendar button at the top right of Today swaps the day for your history: each day's calories and macros, a bar split into protein, carbs and fat (as long as your calorie goal when you've set one), and that day's weigh-in. Tap a day to open it, or tap the calendar again to go back to the day you were on.
 - **The + menu**: add a custom food, scan a nutrition label, log your weight, or pick one of your saved foods.
-- **Weight and body fat**: log your weight (lb or kg) and, if you know it, your body fat %. It's saved for the day you're viewing on Today (today when logged from Goals). Logging the same day again replaces it.
+- **Weight and body fat**: log your weight (lb or kg) and, if you know it, your body fat %. It's saved for the day you're viewing on Today. Logging the same day again replaces it; to change or delete a weigh-in, tap it on that day (History takes you to any day).
 - **Goals**:
-  - a chart of your weigh-ins and their 7-day average (which smooths out day-to-day water weight), or of your body fat, over your goal, 1 month, 3 months or everything
-  - a weight goal: pick a goal weight and a date to get a weekly and daily guide, the pace you need from today to finish on time, and whether you're on track, ahead or behind
+  - a chart of your weight (**WT**) or body fat (**BF%**): each reading plus their 7-day average (which smooths out day-to-day water weight), over your goal, 1 month, 3 months or everything
+  - a goal for either your **weight** or your **body fat %**: pick the goal and a date to get a weekly and daily guide, the pace you need from today to finish on time, and whether you're on track, ahead or behind. Setting one kind replaces the other
   - about you: sex, age, height, activity level and units, used to estimate the calories you burn in a day
-  - daily nutrition: calories either **from my plan** (they follow your weight goal) or **set my own**, split into grams:
+  - daily nutrition: calories either **from my plan** (they follow your goal) or **set my own**, split into grams:
     - Balanced: 30% protein, 50% carbs, 20% fat
     - Custom: enter grams and get the calories (protein and carbs 4 kcal/g, fat 9 kcal/g)
   - sodium, sugar and fiber goals: worked out for you unless you type your own (leave a box blank to use the worked-out amount). Fiber is a goal of 14 g per 1,000 kcal and sugar a limit of 10% of calories, both from your plan's daily calories (your height, weight, age, sex and activity). Sodium is a limit of 2,300 mg, which health guidelines set by age (everyone 14 and older), not body size
@@ -36,11 +36,12 @@ Pick a color in Settings > Appearance and the app works out the rest in [`js/col
 
 All of this lives in [`js/plan.js`](js/plan.js), with tests in `tests/plan.test.mjs`.
 
-- **Current weight** is the average of your weigh-ins over the last 7 days, so one salty dinner doesn't look like a setback.
+- **Current weight** is the average of your weigh-ins over the last 7 days, so one salty dinner doesn't look like a setback. **Current body fat** is averaged the same way (or is your latest reading, if none are that recent).
 - **Calories you burn** = resting calories × activity level (1.2 sedentary up to 1.9 extra active). Resting calories use the Katch-McArdle formula when you've logged body fat in the last 30 days (it's based on lean mass), and Mifflin-St Jeor otherwise (sex, age, height and weight).
-- **Your plan** runs from your weight and the date when you set the goal to the goal weight and date. "From today" is the pace still needed to finish on time, so if you fall behind or get ahead, the calories adjust.
-- **Daily calories** = calories burned ± about 7,700 kcal per kg (3,500 per lb) of change per week, spread over 7 days. For safety the pace is capped at 1% of your body weight a week when losing (0.5% when gaining), and calories never go below 1,500 (men), 1,200 (women) or 1,350 (other) unless you burn less than that.
-- **On track** means you're within normal day-to-day noise (the larger of 0.25 kg and 0.3% of your weight) of where the plan says you should be today.
+- **Your plan** runs from your 7-day average on the day you set the goal to the goal and its date. That starting point is worked out from your weigh-ins, the same way as your current average, so a new goal starts on track, and weigh-ins you add later for earlier days (or that sync from another device) move it too. "From today" is the pace still needed to finish on time, so if you fall behind or get ahead, the calories adjust.
+- **Body fat goals** turn into a weight to aim for: what you'd weigh at the goal body fat if your lean mass (everything but fat) stays the same. The calories aim for that weight by the goal date, and update as new readings come in.
+- **Daily calories** = calories burned ± about 7,700 kcal per kg (3,500 per lb) of change per week, spread over 7 days, at whatever pace your goal needs. They never go below 1,500 (men) or 1,200 (women) unless you burn less than that.
+- **On track** means you're within normal day-to-day noise of where the plan says you should be today: the larger of 0.25 kg and 0.3% of your weight, or 0.5 points of body fat.
 
 These are estimates, not medical advice.
 
@@ -121,7 +122,7 @@ npm start
 npm test
 ```
 
-Unit tests for unit conversions, portion math, goal presets, the weight-goal and calorie math, accent color contrast, the food-emoji list and the nutrition-label parser (including common OCR mistakes, such as "8g" being read as "89"). For sync, see [Testing sync](#testing-sync).
+Unit tests for unit conversions, portion math, goal presets, the goal and calorie math, accent color contrast, the food-emoji list and the nutrition-label parser (including common OCR mistakes, such as "8g" being read as "89"). For sync, see [Testing sync](#testing-sync).
 
 ## Files
 
@@ -135,7 +136,7 @@ js/firebase-config.js       your Firebase project's config (null = sync off)
 js/vendor/firebase.js       Firebase SDK, bundled by `npm run vendor` from scripts/firebase-entry.js
 js/units.js                 unit conversion + portion math
 js/goals.js                 daily nutrition presets + macro/calorie math
-js/plan.js                  weight goals, calories burned, calorie targets
+js/plan.js                  weight and body fat goals, calories burned, calorie targets
 js/colors.js                accent colors: contrast math and readable variants
 js/food-emojis.js           the allowed food emoji icons
 js/label-parser.js          OCR text → nutrition values

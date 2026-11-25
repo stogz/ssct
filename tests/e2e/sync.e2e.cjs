@@ -167,7 +167,7 @@ async function adminList(path) {
   await waitTotal(B.page, '300', 30000);
   check(true, "A's offline entry reached B after reconnecting");
 
-  // ---------- Weights, profile and weight goal sync too ----------
+  // ---------- Weights, profile and goals sync too ----------
   await A.page.click('.tabs [data-view=today]');
   await A.page.click('#fab');
   await A.page.click('#logWeightBtn');
@@ -190,6 +190,14 @@ async function adminList(path) {
   const profileOnB = await B.page.waitForFunction((d) => document.querySelector('#profileForm [name=age]').value === '35'
     && document.querySelector('#weightGoalForm [name=date]').value === d, laterKey, { timeout: 20000 }).then(() => true).catch(() => false);
   check(profileOnB, "A's profile and weight goal reached B");
+  // a body fat goal replaces it, on both devices
+  await A.page.click('#goalMetric [data-metric=bodyFat]');
+  await A.page.fill('#weightGoalForm [name=target]', '17');
+  await A.page.fill('#weightGoalForm [name=date]', laterKey);
+  await A.page.click('#saveGoalBtn');
+  const bodyFatGoalOnB = await B.page.waitForFunction(() => document.querySelector('#goalMetric [data-metric=bodyFat]').getAttribute('aria-pressed') === 'true'
+    && document.querySelector('#weightGoalForm [name=target]').value === '17', null, { timeout: 20000 }).then(() => true).catch(() => false);
+  check(bodyFatGoalOnB, "A's body fat goal reached B");
   // sodium / sugar / fiber: switch and goal
   await A.page.fill('#goal-fiber', '33');
   await A.page.click('.tabs [data-view=settings]');
